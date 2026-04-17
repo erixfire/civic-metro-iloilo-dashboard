@@ -9,6 +9,7 @@ import TrafficCard from './components/TrafficCard'
 import TrafficMap from './components/TrafficMap'
 import EmergencyDirectory from './components/EmergencyDirectory'
 import CswdoServices from './components/CswdoServices'
+import FuelWatchCard from './components/FuelWatchCard'
 
 export default function App() {
   const { darkMode, sidebarOpen, activeSection } = useStore()
@@ -27,34 +28,54 @@ export default function App() {
             <>
               <KpiBar />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <WeatherCard />
-                <div className="lg:col-span-2"><UtilityAlertsWidget /></div>
+                <div className="space-y-5">
+                  <WeatherCard />
+                  <FuelWatchCard />
+                </div>
+                <div className="lg:col-span-2">
+                  <UtilityAlertsWidget />
+                </div>
               </div>
-              <div className="mb-5"><TrafficMap /></div>
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard />
                 <EmergencyDirectory />
               </div>
-              <div className="mb-5"><CswdoServices /></div>
+              <div className="mb-5">
+                <CswdoServices />
+              </div>
             </>
           )}
           {activeSection === 'traffic' && (
             <>
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
-              <div className="mb-5"><TrafficMap /></div>
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
               <TrafficCard />
             </>
           )}
           {activeSection === 'weather' && (
             <>
               <SectionTitle>🌤️ Weather & Tide</SectionTitle>
-              <div className="max-w-md"><WeatherCard /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="max-w-md">
+                  <WeatherCard />
+                </div>
+                <div className="max-w-md">
+                  <FuelWatchCard />
+                </div>
+              </div>
             </>
           )}
           {activeSection === 'utilities' && (
             <>
               <SectionTitle>⚡ Utility Advisories</SectionTitle>
-              <div className="max-w-xl"><UtilityAlertsWidget /></div>
+              <div className="max-w-xl">
+                <UtilityAlertsWidget />
+              </div>
             </>
           )}
           {activeSection === 'cswdo' && (
@@ -66,7 +87,9 @@ export default function App() {
           {activeSection === 'emergency' && (
             <>
               <SectionTitle>📞 Emergency Directory</SectionTitle>
-              <div className="max-w-xl"><EmergencyDirectory /></div>
+              <div className="max-w-xl">
+                <EmergencyDirectory />
+              </div>
             </>
           )}
         </div>
@@ -76,5 +99,9 @@ export default function App() {
 }
 
 function SectionTitle({ children }) {
-  return <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
+  return (
+    <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">
+      {children}
+    </h1>
+  )
 }
