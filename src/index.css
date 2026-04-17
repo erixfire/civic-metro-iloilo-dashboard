@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #f7f6f2;
+    --color-surface: #f9f8f5;
+    --color-primary: #01696f;
+    --color-text: #28251d;
+    --color-text-muted: #7a7974;
+  }
+  .dark {
+    --color-bg: #171614;
+    --color-surface: #1c1b19;
+    --color-primary: #4f98a3;
+    --color-text: #cdccca;
+    --color-text-muted: #797876;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .tabular { font-variant-numeric: tabular-nums lining-nums; }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d1ca; border-radius: 99px; }
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #393836; }
+}
+
+.leaflet-container { font-family: 'Inter', sans-serif !important; }
