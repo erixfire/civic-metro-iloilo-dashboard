@@ -82,25 +82,21 @@ export default function App() {
             </>
           )}
 
-          {/* ── HEAT INDEX ────────────────────────────────────── */}
-          {activeSection === 'heat-index' && (
+          {/* ── WEATHER, TIDE, HEAT INDEX, FLOOD & RAIN ───────── */}
+          {activeSection === 'weather' && (
             <>
-              <SectionTitle>🌡️ Heat Index & Advisories — Iloilo City</SectionTitle>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+              <SectionTitle>🌤️ Weather, Tide, Heat Index & Flood Monitor</SectionTitle>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+                <WeatherCard />
                 <HeatIndexCard />
+                <TideCard />
+              </div>
+              <div className="mb-5">
                 <HeatIndexNewsCard />
               </div>
-              <div className="max-w-sm"><WeatherCard /></div>
-            </>
-          )}
-
-          {/* ── FLOOD / RAIN MONITOR ──────────────────────────── */}
-          {activeSection === 'flood-monitor' && (
-            <>
-              <SectionTitle>💧 Flood & Rain Gauge Monitor</SectionTitle>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <RainGaugeCard />
-                <TideCard />
+                <FuelWatchCard />
               </div>
               <div className="mb-5"><TrafficMap /></div>
             </>
@@ -124,22 +120,6 @@ export default function App() {
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
               <div className="mb-5"><TrafficMap /></div>
               <TrafficCard />
-            </>
-          )}
-
-          {/* ── WEATHER & TIDE ────────────────────────────────── */}
-          {activeSection === 'weather' && (
-            <>
-              <SectionTitle>🌤️ Weather & Tide</SectionTitle>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <WeatherCard />
-                <HeatIndexCard />
-                <TideCard />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                <RainGaugeCard />
-                <FuelWatchCard />
-              </div>
             </>
           )}
 

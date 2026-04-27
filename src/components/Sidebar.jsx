@@ -3,11 +3,9 @@ import useStore from '../store/useStore'
 const NAV_ITEMS = [
   { id: 'dashboard',        label: 'Dashboard',          icon: '🏠' },
   { id: 'cmc',              label: 'CMC Meetings',        icon: '🏛️' },
-  { id: 'heat-index',       label: 'Heat Index',          icon: '🌡️' },
-  { id: 'flood-monitor',    label: 'Flood & Rain',        icon: '💧' },
+  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️' },
   { id: 'incidents',        label: 'Incident Reports',    icon: '📌' },
   { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦' },
-  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️' },
   { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡' },
   { id: 'cswdo',            label: 'CSWDO Services',      icon: '🧑‍🤝‍🧑' },
   { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲' },
