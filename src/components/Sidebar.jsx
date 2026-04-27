@@ -2,13 +2,14 @@ import useStore from '../store/useStore'
 
 const NAV_ITEMS = [
   { id: 'dashboard',        label: 'Dashboard',          icon: '🏠' },
+  { id: 'cmc',              label: 'CMC Meetings',        icon: '🏛️' },
   { id: 'heat-index',       label: 'Heat Index',          icon: '🌡️' },
   { id: 'flood-monitor',    label: 'Flood & Rain',        icon: '💧' },
   { id: 'incidents',        label: 'Incident Reports',    icon: '📌' },
   { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦' },
   { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️' },
   { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡' },
-  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🏛️' },
+  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🧑‍🤝‍🧑' },
   { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲' },
   { id: 'emergency',        label: 'Emergency Directory', icon: '📞' },
 ]
@@ -22,7 +23,7 @@ export default function Sidebar() {
         sidebarOpen ? 'w-56' : 'w-0 overflow-hidden'
       }`}
     >
-      {/* Logo / brand */}
+      {/* Logo */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-4 border-b border-black/10 dark:border-white/10 shrink-0">
         <svg width="28" height="28" viewBox="0 0 32 32" aria-label="Civic Metro Iloilo Logo">
           <rect width="32" height="32" rx="7" fill="#01696f" />

@@ -17,6 +17,7 @@ import TideCard from './components/TideCard'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import KitchenFeedingCard from './components/KitchenFeedingCard'
+import CmcBoard from './components/CmcBoard'
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
@@ -69,8 +70,15 @@ export default function App() {
                 <EmergencyDirectory />
               </div>
               <div className="mb-5"><CswdoServices /></div>
-              {/* Community Kitchen summary on dashboard */}
               <div className="mb-5"><KitchenFeedingCard /></div>
+            </>
+          )}
+
+          {/* ── CMC MEETING BOARD ─────────────────────────────── */}
+          {activeSection === 'cmc' && (
+            <>
+              <SectionTitle>🏛️ Crisis Management Council — Meeting Board</SectionTitle>
+              <CmcBoard />
             </>
           )}
 
@@ -146,7 +154,7 @@ export default function App() {
           {/* ── CSWDO ─────────────────────────────────────────── */}
           {activeSection === 'cswdo' && (
             <>
-              <SectionTitle>🏛️ CSWDO Services</SectionTitle>
+              <SectionTitle>🧑‍🤝‍🧑 CSWDO Services</SectionTitle>
               <div className="mb-5"><CswdoServices /></div>
               <KitchenFeedingCard />
             </>
