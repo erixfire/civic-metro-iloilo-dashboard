@@ -1,15 +1,9 @@
 /**
  * KitchenFeedingCard
  * ──────────────────
- * CSWDO Community Kitchen Feeding Program report card.
- * Shows:
- *  - Today's KPI tiles (families fed, individuals, sites active)
- *  - 14-day trend bar chart (families + individuals)
- *  - Per-site breakdown bar chart (today)
- *  - Cumulative program totals vs targets
- *  - Operator log entry form
+ * CSWDO Community Kitchen Feeding Program — live D1 data via /api/kitchen-feeding
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -21,7 +15,6 @@ import {
   Legend,
 } from 'chart.js'
 import useKitchenStore from '../store/useKitchenStore'
-import { KITCHEN_TARGETS, FEEDING_BY_SITE_TODAY } from '../data/communityKitchenConfig'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -37,10 +30,7 @@ function ProgressBar({ value, max, color = 'bg-brand-600' }) {
   const pct = Math.min(100, Math.round((value / max) * 100))
   return (
     <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
-      <div
-        className={`h-2 rounded-full transition-all ${color}`}
-        style={{ width: `${pct}%` }}
-      />
+      <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
     </div>
   )
 }
@@ -49,29 +39,44 @@ function KpiTile({ label, value, unit = '', sub, color = 'text-brand-600' }) {
   return (
     <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-black/5 dark:border-white/5 px-4 py-3">
       <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">{label}</div>
-      <div className={`tabular text-2xl font-bold ${color}`}>
-        {value.toLocaleString()}{unit}
-      </div>
+      <div className={`tabular text-2xl font-bold ${color}`}>{value?.toLocaleString()}{unit}</div>
       {sub && <div className="text-[11px] text-zinc-400 mt-0.5">{sub}</div>}
     </div>
   )
 }
 
+function SkeletonBar() {
+  return (
+    <div className="animate-pulse space-y-2">
+      <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-1/3" />
+      <div className="h-40 bg-zinc-100 dark:bg-zinc-800 rounded" />
+    </div>
+  )
+}
+
 export default function KitchenFeedingCard() {
-  const { feedingLog, siteBreakdown, addFeedingEntry, getTotals, getToday, getRecentLog } = useKitchenStore()
+  const {
+    siteBreakdown, loading, error,
+    fetchData, addFeedingEntry,
+    getTotals, getToday, getRecentLog, getTargets,
+  } = useKitchenStore()
+
+  // Fetch live D1 data on mount
+  useEffect(() => { fetchData(14) }, [])
+
   const today     = getToday()
   const totals    = getTotals()
   const recentLog = getRecentLog(14)
+  const targets   = getTargets()
+  const sites     = siteBreakdown ?? []
 
-  const targets  = KITCHEN_TARGETS
-  const sites    = siteBreakdown ?? FEEDING_BY_SITE_TODAY
   const textColor = '#6b7280'
   const gridColor = 'rgba(0,0,0,0.06)'
 
-  // ── 14-day trend chart ──────────────────────────────────────────────────────
+  // ── 14-day trend chart ───────────────────────────────────────────────────
   const trendData = {
     labels: recentLog.map((d) =>
-      new Date(d.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+      new Date(d.date ?? d.log_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
     ),
     datasets: [
       {
@@ -79,19 +84,17 @@ export default function KitchenFeedingCard() {
         data: recentLog.map((d) => d.individuals),
         backgroundColor: 'rgba(1,105,111,0.75)',
         borderRadius: 4,
-        order: 1,
       },
       {
         label: 'Families Served',
         data: recentLog.map((d) => d.families),
         backgroundColor: 'rgba(234,179,8,0.75)',
         borderRadius: 4,
-        order: 2,
       },
     ],
   }
 
-  const trendOptions = {
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -104,9 +107,9 @@ export default function KitchenFeedingCard() {
     },
   }
 
-  // ── Per-site breakdown chart ────────────────────────────────────────────────
+  // ── Per-site breakdown chart ─────────────────────────────────────────────
   const siteData = {
-    labels: sites.map((s) => s.siteName),
+    labels: sites.map((s) => s.siteName ?? s.site_name ?? s.barangay),
     datasets: [
       {
         label: 'Families',
@@ -123,41 +126,31 @@ export default function KitchenFeedingCard() {
     ],
   }
 
-  const siteOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 }, boxWidth: 12 } },
-      tooltip: { mode: 'index', intersect: false },
-    },
-    scales: {
-      x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
-      y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor }, min: 0 },
-    },
-  }
-
-  // ── Operator form state ─────────────────────────────────────────────────────
+  // ── Operator form ────────────────────────────────────────────────────────
   const todayISO = new Date().toISOString().split('T')[0]
-  const [form, setForm]       = useState({ date: todayISO, families: '', individuals: '', sites: '', meals: 'Lunch & Merienda' })
-  const [saved, setSaved]     = useState(false)
-  const [formErr, setFormErr] = useState('')
+  const [form, setForm]         = useState({ date: todayISO, families: '', individuals: '', sites: '', meals: 'Lunch & Merienda' })
+  const [saved, setSaved]       = useState(false)
+  const [formErr, setFormErr]   = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   function setF(k, v) { setForm((f) => ({ ...f, [k]: v })) }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!form.families || !form.individuals || !form.sites)
       return setFormErr('Please fill in Families, Individuals, and Sites fields.')
     if (isNaN(form.families) || isNaN(form.individuals) || isNaN(form.sites))
       return setFormErr('Families, Individuals, and Sites must be numbers.')
     setFormErr('')
-    addFeedingEntry(form)
+    setSubmitting(true)
+    await addFeedingEntry(form)
+    setSubmitting(false)
     setSaved(true)
     setTimeout(() => { setSaved(false); setShowForm(false) }, 2000)
   }
 
-  const familyPct    = today ? Math.min(100, Math.round((today.families    / targets.dailyFamilyTarget)     * 100)) : 0
+  const familyPct     = today ? Math.min(100, Math.round((today.families    / targets.dailyFamilyTarget)     * 100)) : 0
   const individualPct = today ? Math.min(100, Math.round((today.individuals / targets.dailyIndividualTarget) * 100)) : 0
 
   return (
@@ -171,18 +164,24 @@ export default function KitchenFeedingCard() {
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">{targets.programName}</p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="shrink-0 text-xs bg-brand-600 hover:bg-brand-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors"
-        >
-          {showForm ? 'Cancel' : '+ Log Entry'}
-        </button>
+        <div className="flex items-center gap-2">
+          {loading && <span className="text-xs text-zinc-400 animate-pulse">Syncing D1…</span>}
+          {error   && (
+            <span className="text-[11px] text-amber-500" title={error}>⚠ using cached data</span>
+          )}
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="shrink-0 text-xs bg-brand-600 hover:bg-brand-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {showForm ? 'Cancel' : '+ Log Entry'}
+          </button>
+        </div>
       </div>
 
       {/* Operator form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-5 p-4 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-black/5 dark:border-white/5 space-y-3">
-          <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Add Daily Feeding Log</div>
+          <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Add Daily Feeding Log → saves to D1</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs text-zinc-400 mb-1">Date</label>
@@ -212,12 +211,25 @@ export default function KitchenFeedingCard() {
               {MEALS_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
-          {formErr && <div className="text-xs text-red-500">{formErr}</div>}
-          {saved   && <div className="text-xs text-green-600">✅ Entry saved!</div>}
-          <button type="submit" className="w-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg py-2 transition-colors">
-            Save Entry
+          {formErr    && <div className="text-xs text-red-500">{formErr}</div>}
+          {saved      && <div className="text-xs text-green-600">✅ Saved to D1!</div>}
+          <button type="submit" disabled={submitting}
+            className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg py-2 transition-colors">
+            {submitting ? 'Saving…' : 'Save Entry to D1'}
           </button>
         </form>
+      )}
+
+      {/* Loading skeleton */}
+      {loading && !today && (
+        <div className="space-y-4 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="animate-pulse h-20 rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+            ))}
+          </div>
+          <SkeletonBar />
+        </div>
       )}
 
       {/* Today KPI tiles */}
@@ -227,7 +239,7 @@ export default function KitchenFeedingCard() {
             sub={`${familyPct}% of ${targets.dailyFamilyTarget} target`} />
           <KpiTile label="Individuals Fed Today" value={today.individuals} color="text-brand-600"
             sub={`${individualPct}% of ${targets.dailyIndividualTarget} target`} />
-          <KpiTile label="Active Sites" value={today.sites} unit=" sites" color="text-green-600"
+          <KpiTile label="Active Sites" value={today.sites_active ?? today.sites} unit=" sites" color="text-green-600"
             sub="kitchen stations open" />
           <KpiTile label="Meals Served" value={today.meals?.split('&').length ?? 1} unit=" types"
             color="text-zinc-500" sub={today.meals} />
@@ -256,23 +268,19 @@ export default function KitchenFeedingCard() {
 
       {/* 14-day trend chart */}
       <div className="mb-6">
-        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-          📈 14-Day Feeding Trend
-        </div>
-        <div style={{ height: 200 }}>
-          <Bar data={trendData} options={trendOptions} />
-        </div>
+        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">📈 14-Day Feeding Trend</div>
+        {loading && !recentLog.length ? <SkeletonBar /> : (
+          <div style={{ height: 200 }}><Bar data={trendData} options={chartOptions} /></div>
+        )}
       </div>
 
       {/* Per-site breakdown chart */}
-      <div className="mb-6">
-        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-          📍 Today's Feeding by Site
+      {sites.length > 0 && (
+        <div className="mb-6">
+          <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">📍 Today's Feeding by Site</div>
+          <div style={{ height: 180 }}><Bar data={siteData} options={chartOptions} /></div>
         </div>
-        <div style={{ height: 180 }}>
-          <Bar data={siteData} options={siteOptions} />
-        </div>
-      </div>
+      )}
 
       {/* Cumulative program totals */}
       <div className="mb-5 grid grid-cols-2 gap-3">
@@ -289,35 +297,40 @@ export default function KitchenFeedingCard() {
       </div>
 
       {/* Per-site table */}
-      <div className="mb-4">
-        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Site-by-Site Today</div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-black/5 dark:border-white/5">
-                <th className="text-left py-1.5 text-zinc-400 font-medium">Site</th>
-                <th className="text-right py-1.5 text-zinc-400 font-medium">Families</th>
-                <th className="text-right py-1.5 text-zinc-400 font-medium">Individuals</th>
-                <th className="text-right py-1.5 text-zinc-400 font-medium">Avg/Family</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sites.map((s) => (
-                <tr key={s.siteId} className="border-b border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                  <td className="py-1.5 font-medium text-zinc-700 dark:text-zinc-200">{s.siteName}</td>
-                  <td className="py-1.5 text-right tabular text-yellow-500 font-semibold">{s.families}</td>
-                  <td className="py-1.5 text-right tabular text-brand-600 font-semibold">{s.individuals}</td>
-                  <td className="py-1.5 text-right tabular text-zinc-500">{(s.individuals / s.families).toFixed(1)}</td>
+      {sites.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Site-by-Site Today</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-black/5 dark:border-white/5">
+                  <th className="text-left py-1.5 text-zinc-400 font-medium">Site</th>
+                  <th className="text-right py-1.5 text-zinc-400 font-medium">Families</th>
+                  <th className="text-right py-1.5 text-zinc-400 font-medium">Individuals</th>
+                  <th className="text-right py-1.5 text-zinc-400 font-medium">Avg/Family</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sites.map((s, i) => (
+                  <tr key={s.siteId ?? s.site_id ?? i} className="border-b border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <td className="py-1.5 font-medium text-zinc-700 dark:text-zinc-200">{s.siteName ?? s.site_name ?? s.barangay}</td>
+                    <td className="py-1.5 text-right tabular text-yellow-500 font-semibold">{s.families}</td>
+                    <td className="py-1.5 text-right tabular text-brand-600 font-semibold">{s.individuals}</td>
+                    <td className="py-1.5 text-right tabular text-zinc-500">
+                      {s.families > 0 ? (s.individuals / s.families).toFixed(1) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Footer */}
-      <div className="text-[11px] text-zinc-400 border-t border-black/5 dark:border-white/5 pt-3">
-        Funding: {targets.fundingSource} · Program ends {targets.programEndDate}
+      <div className="text-[11px] text-zinc-400 border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
+        <span>Funding: {targets.fundingSource}</span>
+        <span>Program ends {targets.programEndDate}</span>
       </div>
     </div>
   )
