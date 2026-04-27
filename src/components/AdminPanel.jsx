@@ -3,10 +3,11 @@
  * Tabs: Overview | Incidents | Utility Alerts | Kitchen Sites | CMC | Settings | Audit Log
  */
 import { useState, useEffect } from 'react'
-import useKitchenStore  from '../store/useKitchenStore'
-import useIncidentStore from '../store/useIncidentStore'
+import useKitchenStore    from '../store/useKitchenStore'
+import useIncidentStore   from '../store/useIncidentStore'
 import AdminUtilityAlerts from './AdminUtilityAlerts'
 import AdminCmcCreate     from './AdminCmcCreate'
+import AdminCmcManage     from './AdminCmcManage'
 import AdminSettings      from './AdminSettings'
 import AdminAuditLog      from './AdminAuditLog'
 import AdminKitchenSites  from './AdminKitchenSites'
@@ -17,7 +18,8 @@ const TABS = [
   { id: 'incidents',  label: '📌 Incidents'        },
   { id: 'utility',    label: '⚡ Utility Alerts'   },
   { id: 'kitchen',    label: '🍲 Kitchen Sites'    },
-  { id: 'cmc',        label: '🏛️ CMC'              },
+  { id: 'cmc-manage', label: '🏛️ CMC Manage'       },
+  { id: 'cmc-create', label: '➕ CMC Create'        },
   { id: 'settings',   label: '⚙️ Settings'         },
   { id: 'audit',      label: '📋 Audit Log'        },
 ]
@@ -153,12 +155,12 @@ export default function AdminPanel({ onNavigate }) {
 
           <AdminSection title="⚡ Quick Actions">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
-              <QuickLink icon="🏛️" label="CMC Meetings"        desc="View board, action items"         onClick={() => onNavigate('cmc')} />
-              <QuickLink icon="🍲" label="Log Kitchen Feeding"   desc="Post today’s CSWDO figures"      onClick={() => onNavigate('community-kitchen')} />
+              <QuickLink icon="📌" label="Incident Dashboard"   desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
+              <QuickLink icon="🏛️" label="CMC Meeting Board"    desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
+              <QuickLink icon="🍲" label="Log Kitchen Feeding"   desc="Post today's CSWDO figures"       onClick={() => onNavigate('community-kitchen')} />
               <QuickLink icon="⚡" label="Utility Alerts"       desc="Manage power/water notices"       onClick={() => setTab('utility')} />
-              <QuickLink icon="🍲" label="Kitchen Sites"        desc="Add/manage feeding stations"      onClick={() => setTab('kitchen')} />
-              <QuickLink icon="⚙️" label="App Settings"        desc="Edit dashboard config"           onClick={() => setTab('settings')} />
+              <QuickLink icon="🍲" label="Kitchen Sites"         desc="Add/manage feeding stations"      onClick={() => setTab('kitchen')} />
+              <QuickLink icon="⚙️" label="App Settings"         desc="Edit dashboard config"            onClick={() => setTab('settings')} />
             </div>
           </AdminSection>
 
@@ -208,29 +210,27 @@ export default function AdminPanel({ onNavigate }) {
       )}
 
       {tab === 'incidents' && (
-        <AdminSection title="📌 Incident Management">
-          <AdminIncidents />
-        </AdminSection>
+        <AdminSection title="📌 Incident Management"><AdminIncidents /></AdminSection>
       )}
-
       {tab === 'utility' && (
         <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>
       )}
-
       {tab === 'kitchen' && (
         <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>
       )}
-
-      {tab === 'cmc' && (
-        <AdminSection title="🏛️ Create New CMC Meeting">
-          <AdminCmcCreate onSuccess={() => onNavigate('cmc')} />
+      {tab === 'cmc-manage' && (
+        <AdminSection title="🏛️ CMC Meeting Board">
+          <AdminCmcManage />
         </AdminSection>
       )}
-
+      {tab === 'cmc-create' && (
+        <AdminSection title="➕ Create New CMC Meeting">
+          <AdminCmcCreate onSuccess={() => setTab('cmc-manage')} />
+        </AdminSection>
+      )}
       {tab === 'settings' && (
         <AdminSection title="⚙️ App Settings (D1)"><AdminSettings /></AdminSection>
       )}
-
       {tab === 'audit' && (
         <AdminSection title="📋 Audit Log"><AdminAuditLog /></AdminSection>
       )}
