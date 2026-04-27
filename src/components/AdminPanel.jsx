@@ -1,6 +1,6 @@
 /**
  * AdminPanel — Operator control center
- * Tabs: Overview | Utility Alerts | Kitchen Sites | CMC | Settings | Audit Log
+ * Tabs: Overview | Incidents | Utility Alerts | Kitchen Sites | CMC | Settings | Audit Log
  */
 import { useState, useEffect } from 'react'
 import useKitchenStore  from '../store/useKitchenStore'
@@ -10,14 +10,16 @@ import AdminCmcCreate     from './AdminCmcCreate'
 import AdminSettings      from './AdminSettings'
 import AdminAuditLog      from './AdminAuditLog'
 import AdminKitchenSites  from './AdminKitchenSites'
+import AdminIncidents     from './AdminIncidents'
 
 const TABS = [
-  { id: 'overview',  label: '📊 Overview'        },
-  { id: 'utility',   label: '⚡ Utility Alerts'   },
-  { id: 'kitchen',   label: '🍲 Kitchen Sites'    },
-  { id: 'cmc',       label: '🏛️ CMC'              },
-  { id: 'settings',  label: '⚙️ Settings'         },
-  { id: 'audit',     label: '📋 Audit Log'        },
+  { id: 'overview',   label: '📊 Overview'        },
+  { id: 'incidents',  label: '📌 Incidents'        },
+  { id: 'utility',    label: '⚡ Utility Alerts'   },
+  { id: 'kitchen',    label: '🍲 Kitchen Sites'    },
+  { id: 'cmc',        label: '🏛️ CMC'              },
+  { id: 'settings',   label: '⚙️ Settings'         },
+  { id: 'audit',      label: '📋 Audit Log'        },
 ]
 
 const AREAS       = ['Iloilo City','Dumangas, Iloilo','Lambunao, Iloilo','Pavia, Iloilo','Santa Barbara, Iloilo']
@@ -151,9 +153,9 @@ export default function AdminPanel({ onNavigate }) {
 
           <AdminSection title="⚡ Quick Actions">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
               <QuickLink icon="🏛️" label="CMC Meetings"        desc="View board, action items"         onClick={() => onNavigate('cmc')} />
               <QuickLink icon="🍲" label="Log Kitchen Feeding"   desc="Post today’s CSWDO figures"      onClick={() => onNavigate('community-kitchen')} />
-              <QuickLink icon="📌" label="Report Incident"      desc="Submit new CDRRMO incident"       onClick={() => onNavigate('incidents')} />
               <QuickLink icon="⚡" label="Utility Alerts"       desc="Manage power/water notices"       onClick={() => setTab('utility')} />
               <QuickLink icon="🍲" label="Kitchen Sites"        desc="Add/manage feeding stations"      onClick={() => setTab('kitchen')} />
               <QuickLink icon="⚙️" label="App Settings"        desc="Edit dashboard config"           onClick={() => setTab('settings')} />
@@ -184,27 +186,17 @@ export default function AdminPanel({ onNavigate }) {
           <AdminSection title="🌡️ Heat Index Entry — PAGASA">
             <form onSubmit={saveHeat} className="space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Date</label>
-                  <input type="date" value={heat.log_date} onChange={(e) => setHeat((h) => ({ ...h, log_date: e.target.value }))} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Area</label>
+                <div><label className="block text-xs text-zinc-400 mb-1">Date</label>
+                  <input type="date" value={heat.log_date} onChange={(e) => setHeat((h) => ({ ...h, log_date: e.target.value }))} className="input-field" /></div>
+                <div><label className="block text-xs text-zinc-400 mb-1">Area</label>
                   <select value={heat.area} onChange={(e) => setHeat((h) => ({ ...h, area: e.target.value }))} className="input-field">
-                    {AREAS.map((a) => <option key={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Heat Index (°C)</label>
+                    {AREAS.map((a) => <option key={a}>{a}</option>)}</select></div>
+                <div><label className="block text-xs text-zinc-400 mb-1">Heat Index (°C)</label>
                   <input type="number" step="0.1" placeholder="41" value={heat.heat_index_c}
-                    onChange={(e) => setHeat((h) => ({ ...h, heat_index_c: e.target.value }))} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Level</label>
+                    onChange={(e) => setHeat((h) => ({ ...h, heat_index_c: e.target.value }))} className="input-field" /></div>
+                <div><label className="block text-xs text-zinc-400 mb-1">Level</label>
                   <select value={heat.level} onChange={(e) => setHeat((h) => ({ ...h, level: e.target.value }))} className="input-field">
-                    {HEAT_LEVELS.map((l) => <option key={l}>{l}</option>)}
-                  </select>
-                </div>
+                    {HEAT_LEVELS.map((l) => <option key={l}>{l}</option>)}</select></div>
               </div>
               {heatSaved && <div className="text-xs text-green-600">✅ Heat index saved!</div>}
               <button type="submit" disabled={heatSaving} className="btn-primary">
@@ -213,6 +205,12 @@ export default function AdminPanel({ onNavigate }) {
             </form>
           </AdminSection>
         </>
+      )}
+
+      {tab === 'incidents' && (
+        <AdminSection title="📌 Incident Management">
+          <AdminIncidents />
+        </AdminSection>
       )}
 
       {tab === 'utility' && (
