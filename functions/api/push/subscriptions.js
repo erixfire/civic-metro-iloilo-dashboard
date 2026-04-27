@@ -1,5 +1,6 @@
 /**
- * GET /api/push/subscriptions  — count of active subscriptions (admin only)
+ * GET /api/push/subscriptions — subscriber count (admin/operator)
+ * Returns 0 gracefully if table doesn't exist yet.
  */
 
 const CORS = {
@@ -16,15 +17,19 @@ export async function onRequest({ request, env }) {
   const payload = await verifyToken(getBearerToken(request), secret)
   if (!payload) return json({ error: 'Auth required' }, 401)
 
-  const row = await env.DB.prepare(`SELECT COUNT(*) as count FROM push_subscriptions`).first()
-  return json({ count: row?.count ?? 0 })
+  try {
+    const row = await env.DB.prepare(`SELECT COUNT(*) as count FROM push_subscriptions`).first()
+    return json({ count: row?.count ?? 0 })
+  } catch {
+    // Table not yet created
+    return json({ count: 0, warning: 'push_subscriptions table not yet created' })
+  }
 }
 
 function getBearerToken(req) {
   const auth = req.headers.get('Authorization') ?? ''
   return auth.startsWith('Bearer ') ? auth.slice(7) : null
 }
-
 async function verifyToken(token, secret) {
   try {
     if (!token) return null
@@ -41,7 +46,6 @@ async function verifyToken(token, secret) {
     return pl
   } catch { return null }
 }
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: CORS })
 }
