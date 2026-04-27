@@ -1,5 +1,6 @@
 -- =============================================================
--- ADMIN MODULE — D1 Tables (run each block individually)
+-- ADMIN MODULE — D1 Tables
+-- Run each CREATE block individually in the Cloudflare D1 console
 -- =============================================================
 
 -- 1. AUDIT LOG
@@ -70,5 +71,24 @@ CREATE TABLE IF NOT EXISTS kitchen_sites (
 );
 CREATE INDEX IF NOT EXISTS idx_kitchen_active ON kitchen_sites(is_active);
 
--- 6. Add updated_at to cmc_meetings if missing
--- ALTER TABLE cmc_meetings ADD COLUMN updated_at TEXT;
+-- 6. ADMIN USERS  ← NEW: for login system
+CREATE TABLE IF NOT EXISTS admin_users (
+  id            TEXT PRIMARY KEY,
+  username      TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  salt          TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'operator',  -- admin | operator | viewer
+  full_name     TEXT,
+  is_active     INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_users_username ON admin_users(username);
+CREATE INDEX IF NOT EXISTS idx_users_active   ON admin_users(is_active);
+
+-- =============================================================
+-- FIRST USER SETUP
+-- Call POST /api/auth/create-user with no Auth header
+-- (allowed only when admin_users table is empty)
+-- Body: { "username": "admin", "password": "your-password", "role": "admin", "full_name": "Admin" }
+-- =============================================================
