@@ -1,0 +1,12 @@
+# wrangler.toml — Civic Metro Iloilo Dashboard
+# Cloudflare Pages + D1 configuration
+# Replace DATABASE_ID placeholders after running: wrangler d1 create civic-iloilo-db
+
+name = "civic-metro-iloilo-dashboard"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"                          # env.DB in all Functions
+database_name = "civic-iloilo-db"       # name you give when creating
+database_id   = "REPLACE_WITH_YOUR_DATABASE_ID"   # fill after: wrangler d1 create civic-iloilo-db
