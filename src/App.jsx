@@ -17,6 +17,7 @@ import RainGaugeCard from './components/RainGaugeCard'
 import TideCard from './components/TideCard'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
+import IncidentMap from './components/IncidentMap'
 import KitchenFeedingCard from './components/KitchenFeedingCard'
 import CmcBoard from './components/CmcBoard'
 import AdminPanel from './components/AdminPanel'
@@ -27,17 +28,24 @@ function usePwaDeepLink() {
   useEffect(() => {
     const params  = new URLSearchParams(window.location.search)
     const section = params.get('section')
-    if (section) {
-      setActiveSection(section)
-      window.history.replaceState({}, '', '/')
-    }
+    if (section) { setActiveSection(section); window.history.replaceState({}, '', '/') }
   }, [setActiveSection])
+}
+
+// Register service worker for Web Push + offline
+function useServiceWorker() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
 }
 
 export default function App() {
   const { darkMode, sidebarOpen, activeSection, setActiveSection } = useStore()
-  const { user, loading, login, logout, loginError, loginBusy } = useAuth()
+  const { user, loading, login, logout, loginError, loginBusy }   = useAuth()
   usePwaDeepLink()
+  useServiceWorker()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -47,27 +55,19 @@ export default function App() {
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
       <Sidebar />
       <Header user={user} onLogout={logout} />
-      <main
-        className={`pt-14 min-h-dvh transition-all duration-300 ${
-          sidebarOpen ? 'pl-56' : 'pl-0'
-        }`}
-      >
+      <main className={`pt-14 min-h-dvh transition-all duration-300 ${ sidebarOpen ? 'pl-56' : 'pl-0' }`}>
         <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
 
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <div className="flex flex-col gap-5">
-                  <WeatherCard />
-                  <FuelWatchCard />
-                </div>
+                <div className="flex flex-col gap-5"><WeatherCard /><FuelWatchCard /></div>
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
               <div className="mb-5"><TrafficMap /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                <TrafficCard />
-                <EmergencyDirectory />
+                <TrafficCard /><EmergencyDirectory />
               </div>
               <div className="mb-5"><CswdoServices /></div>
               <div className="mb-5"><KitchenFeedingCard /></div>
@@ -78,14 +78,11 @@ export default function App() {
             <>
               <SectionTitle>🌤️ Weather, Tide, Heat Index & Flood Monitor</SectionTitle>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <WeatherCard />
-                <HeatIndexCard />
-                <TideCard />
+                <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
               <div className="mb-5"><HeatIndexNewsCard /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                <RainGaugeCard />
-                <FuelWatchCard />
+                <RainGaugeCard /><FuelWatchCard />
               </div>
               <div className="mb-5"><TrafficMap /></div>
             </>
@@ -94,11 +91,10 @@ export default function App() {
           {activeSection === 'incidents' && (
             <>
               <SectionTitle>📌 CDRRMO Incident Reports</SectionTitle>
+              <div className="mb-5"><IncidentMap /></div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
-                <IncidentReportForm />
-                <IncidentList />
+                <IncidentReportForm /><IncidentList />
               </div>
-              <div className="mb-5"><TrafficMap /></div>
             </>
           )}
 
@@ -139,7 +135,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── ADMIN ─ Protected by login ──────────────────────────────── */}
+          {/* ── ADMIN — Protected ─────────────────────────── */}
           {activeSection === 'admin' && (
             <>
               {loading && (
@@ -148,30 +144,10 @@ export default function App() {
                 </div>
               )}
               {!loading && !user && (
-                <AdminLoginPage
-                  onLogin={login}
-                  loginError={loginError}
-                  loginBusy={loginBusy}
-                />
+                <AdminLoginPage onLogin={login} loginError={loginError} loginBusy={loginBusy} />
               )}
               {!loading && user && (
-                <>
-                  <div className="flex items-center justify-between mb-5">
-                    <SectionTitle>⚙️ Admin Panel — OpCen Operator Controls</SectionTitle>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{user.full_name ?? user.username}</div>
-                        <div className="text-[10px] text-zinc-400 capitalize">{user.role}</div>
-                      </div>
-                      <button
-                        onClick={logout}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                  <AdminPanel onNavigate={setActiveSection} user={user} />
-                </>
+                <AdminPanel onNavigate={setActiveSection} user={user} />
               )}
             </>
           )}
@@ -190,7 +166,5 @@ export default function App() {
 }
 
 function SectionTitle({ children }) {
-  return (
-    <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
-  )
+  return <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
 }

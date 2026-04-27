@@ -1,28 +1,37 @@
 /**
  * AdminPanel — Operator control center
- * Tabs: Overview | Incidents | Utility Alerts | Kitchen Sites | CMC | Settings | Audit Log
+ * Role-gated tabs: viewer sees read-only tabs only
  */
 import { useState, useEffect } from 'react'
-import useKitchenStore    from '../store/useKitchenStore'
-import useIncidentStore   from '../store/useIncidentStore'
-import AdminUtilityAlerts from './AdminUtilityAlerts'
-import AdminCmcCreate     from './AdminCmcCreate'
-import AdminCmcManage     from './AdminCmcManage'
-import AdminSettings      from './AdminSettings'
-import AdminAuditLog      from './AdminAuditLog'
-import AdminKitchenSites  from './AdminKitchenSites'
-import AdminIncidents     from './AdminIncidents'
+import useKitchenStore         from '../store/useKitchenStore'
+import useIncidentStore        from '../store/useIncidentStore'
+import AdminUtilityAlerts      from './AdminUtilityAlerts'
+import AdminCmcCreate          from './AdminCmcCreate'
+import AdminCmcManage          from './AdminCmcManage'
+import AdminSettings           from './AdminSettings'
+import AdminAuditLog           from './AdminAuditLog'
+import AdminKitchenSites       from './AdminKitchenSites'
+import AdminIncidents          from './AdminIncidents'
+import AdminUserManagement     from './AdminUserManagement'
+import AdminNotifications      from './AdminNotifications'
 
-const TABS = [
-  { id: 'overview',   label: '📊 Overview'        },
-  { id: 'incidents',  label: '📌 Incidents'        },
-  { id: 'utility',    label: '⚡ Utility Alerts'   },
-  { id: 'kitchen',    label: '🍲 Kitchen Sites'    },
-  { id: 'cmc-manage', label: '🏛️ CMC Manage'       },
-  { id: 'cmc-create', label: '➕ CMC Create'        },
-  { id: 'settings',   label: '⚙️ Settings'         },
-  { id: 'audit',      label: '📋 Audit Log'        },
+const ALL_TABS = [
+  { id: 'overview',      label: '📊 Overview',       minRole: 'viewer'   },
+  { id: 'incidents',     label: '📌 Incidents',       minRole: 'operator' },
+  { id: 'utility',       label: '⚡ Utility Alerts',  minRole: 'operator' },
+  { id: 'kitchen',       label: '🍲 Kitchen Sites',   minRole: 'operator' },
+  { id: 'cmc-manage',   label: '🏛️ CMC Manage',      minRole: 'operator' },
+  { id: 'cmc-create',   label: '➕ CMC Create',       minRole: 'operator' },
+  { id: 'notifications', label: '🔔 Push Alerts',     minRole: 'operator' },
+  { id: 'settings',      label: '⚙️ Settings',        minRole: 'admin'    },
+  { id: 'users',         label: '👥 Users',            minRole: 'admin'    },
+  { id: 'audit',         label: '📋 Audit Log',        minRole: 'admin'    },
 ]
+
+const ROLE_RANK = { admin: 3, operator: 2, viewer: 1 }
+function canSee(tabMinRole, userRole) {
+  return (ROLE_RANK[userRole] ?? 0) >= (ROLE_RANK[tabMinRole] ?? 0)
+}
 
 const AREAS       = ['Iloilo City','Dumangas, Iloilo','Lambunao, Iloilo','Pavia, Iloilo','Santa Barbara, Iloilo']
 const HEAT_LEVELS = ['Normal','Caution','Extreme Caution','Danger','Extreme Danger']
@@ -58,52 +67,44 @@ function QuickLink({ icon, label, desc, onClick }) {
   )
 }
 
-export default function AdminPanel({ onNavigate }) {
-  const [tab, setTab] = useState('overview')
+export default function AdminPanel({ onNavigate, user }) {
+  const role = user?.role ?? 'viewer'
+  const visibleTabs = ALL_TABS.filter((t) => canSee(t.minRole, role))
+
+  const [tab, setTab] = useState(visibleTabs[0]?.id ?? 'overview')
 
   const { getTotals, getToday, lastFetched, fetchData } = useKitchenStore()
   const { incidents, fetchIncidents }                   = useIncidentStore()
 
-  const [dbStatus, setDbStatus] = useState('checking')
-
-  const [fuel, setFuel] = useState({
-    as_of: new Date().toISOString().split('T')[0],
-    iloilo_gasoline_avg: '', iloilo_diesel_avg: '',
-    iloilo_kerosene_avg: '', ph_gasoline_avg: '', ph_diesel_avg: '',
-  })
+  const [dbStatus,   setDbStatus]   = useState('checking')
+  const [fuel,       setFuel]       = useState({ as_of: new Date().toISOString().split('T')[0], iloilo_gasoline_avg: '', iloilo_diesel_avg: '', iloilo_kerosene_avg: '', ph_gasoline_avg: '', ph_diesel_avg: '' })
   const [fuelSaved,  setFuelSaved]  = useState(false)
   const [fuelError,  setFuelError]  = useState('')
   const [fuelSaving, setFuelSaving] = useState(false)
-
-  const [heat, setHeat] = useState({
-    log_date: new Date().toISOString().split('T')[0],
-    area: 'Iloilo City', heat_index_c: '', level: 'Extreme Caution',
-  })
+  const [heat,       setHeat]       = useState({ log_date: new Date().toISOString().split('T')[0], area: 'Iloilo City', heat_index_c: '', level: 'Extreme Caution' })
   const [heatSaved,  setHeatSaved]  = useState(false)
   const [heatSaving, setHeatSaving] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-    fetchIncidents()
-    checkDb()
-  }, [])
+  useEffect(() => { fetchData(); fetchIncidents(); checkDb() }, [])
 
   async function checkDb() {
-    try { const r = await fetch('/api/kitchen-feeding'); setDbStatus(r.ok ? 'ok' : 'error') }
-    catch { setDbStatus('error') }
+    try { const r = await fetch('/api/kitchen-feeding'); setDbStatus(r.ok ? 'ok' : 'error') } catch { setDbStatus('error') }
+  }
+
+  function authHeader() {
+    const t = localStorage.getItem('civic_admin_token')
+    return t ? { Authorization: `Bearer ${t}` } : {}
   }
 
   async function saveFuel(e) {
     e.preventDefault(); setFuelError('')
-    if (!fuel.iloilo_gasoline_avg || !fuel.iloilo_diesel_avg)
-      return setFuelError('Gasoline and Diesel are required.')
+    if (!fuel.iloilo_gasoline_avg || !fuel.iloilo_diesel_avg) return setFuelError('Gasoline and Diesel are required.')
     setFuelSaving(true)
     try {
-      const r = await fetch('/api/fuel-prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fuel) })
+      const r = await fetch('/api/fuel-prices', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(fuel) })
       if (!r.ok) throw new Error('Save failed')
       setFuelSaved(true); setTimeout(() => setFuelSaved(false), 3000)
-    } catch (e) { setFuelError(e.message) }
-    finally { setFuelSaving(false) }
+    } catch (e) { setFuelError(e.message) } finally { setFuelSaving(false) }
   }
 
   async function saveHeat(e) {
@@ -111,7 +112,7 @@ export default function AdminPanel({ onNavigate }) {
     if (!heat.heat_index_c) return
     setHeatSaving(true)
     try {
-      await fetch('/api/heat-index', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(heat) })
+      await fetch('/api/heat-index', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(heat) })
       setHeatSaved(true); setTimeout(() => setHeatSaved(false), 3000)
     } finally { setHeatSaving(false) }
   }
@@ -123,9 +124,16 @@ export default function AdminPanel({ onNavigate }) {
   return (
     <div className="space-y-5">
 
+      {/* Role badge */}
+      {role === 'viewer' && (
+        <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2">
+          <span>👁️</span> You are in <strong>Viewer</strong> mode — read-only access. Contact an admin to request operator permissions.
+        </div>
+      )}
+
       {/* Tab bar */}
       <div className="flex gap-1.5 flex-wrap">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`text-xs font-semibold px-4 py-2 rounded-lg border transition-colors ${
               tab === t.id
@@ -153,87 +161,70 @@ export default function AdminPanel({ onNavigate }) {
             </div>
           </AdminSection>
 
-          <AdminSection title="⚡ Quick Actions">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <QuickLink icon="📌" label="Incident Dashboard"   desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
-              <QuickLink icon="🏛️" label="CMC Meeting Board"    desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
-              <QuickLink icon="🍲" label="Log Kitchen Feeding"   desc="Post today's CSWDO figures"       onClick={() => onNavigate('community-kitchen')} />
-              <QuickLink icon="⚡" label="Utility Alerts"       desc="Manage power/water notices"       onClick={() => setTab('utility')} />
-              <QuickLink icon="🍲" label="Kitchen Sites"         desc="Add/manage feeding stations"      onClick={() => setTab('kitchen')} />
-              <QuickLink icon="⚙️" label="App Settings"         desc="Edit dashboard config"            onClick={() => setTab('settings')} />
-            </div>
-          </AdminSection>
-
-          <AdminSection title="⛽ Fuel Price Log — LPCC/DOE">
-            <form onSubmit={saveFuel} className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[['as_of','Date','date',null],['iloilo_gasoline_avg','Iloilo Gasoline (₱)','number','65.80'],['iloilo_diesel_avg','Iloilo Diesel (₱)','number','46.20'],['iloilo_kerosene_avg','Iloilo Kerosene (₱)','number','64.10'],['ph_gasoline_avg','PH Gasoline (₱)','number','56.71'],['ph_diesel_avg','PH Diesel (₱)','number','43.10']].map(([key,label,type,ph]) => (
-                  <div key={key}>
-                    <label className="block text-xs text-zinc-400 mb-1">{label}</label>
-                    <input type={type} step={type === 'number' ? '0.01' : undefined}
-                      placeholder={ph} value={fuel[key]}
-                      onChange={(e) => setFuel((f) => ({ ...f, [key]: e.target.value }))}
-                      className="input-field" />
-                  </div>
-                ))}
+          {role !== 'viewer' && (
+            <AdminSection title="⚡ Quick Actions">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
+                <QuickLink icon="🏛️" label="CMC Meeting Board"   desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
+                <QuickLink icon="🍲" label="Log Kitchen Feeding"  desc="Post today's CSWDO figures"       onClick={() => onNavigate('community-kitchen')} />
+                <QuickLink icon="🔔" label="Push Notifications"  desc="Send alerts to all subscribers"   onClick={() => setTab('notifications')} />
+                <QuickLink icon="⚡" label="Utility Alerts"      desc="Manage power/water notices"       onClick={() => setTab('utility')} />
+                {role === 'admin' && <QuickLink icon="👥" label="User Management" desc="Add/deactivate operator accounts" onClick={() => setTab('users')} />}
               </div>
-              {fuelError && <div className="text-xs text-red-500">{fuelError}</div>}
-              {fuelSaved && <div className="text-xs text-green-600">✅ Fuel prices saved to D1!</div>}
-              <button type="submit" disabled={fuelSaving} className="btn-primary">
-                {fuelSaving ? 'Saving…' : 'Save Fuel Prices'}
-              </button>
-            </form>
-          </AdminSection>
+            </AdminSection>
+          )}
 
-          <AdminSection title="🌡️ Heat Index Entry — PAGASA">
-            <form onSubmit={saveHeat} className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div><label className="block text-xs text-zinc-400 mb-1">Date</label>
-                  <input type="date" value={heat.log_date} onChange={(e) => setHeat((h) => ({ ...h, log_date: e.target.value }))} className="input-field" /></div>
-                <div><label className="block text-xs text-zinc-400 mb-1">Area</label>
-                  <select value={heat.area} onChange={(e) => setHeat((h) => ({ ...h, area: e.target.value }))} className="input-field">
-                    {AREAS.map((a) => <option key={a}>{a}</option>)}</select></div>
-                <div><label className="block text-xs text-zinc-400 mb-1">Heat Index (°C)</label>
-                  <input type="number" step="0.1" placeholder="41" value={heat.heat_index_c}
-                    onChange={(e) => setHeat((h) => ({ ...h, heat_index_c: e.target.value }))} className="input-field" /></div>
-                <div><label className="block text-xs text-zinc-400 mb-1">Level</label>
-                  <select value={heat.level} onChange={(e) => setHeat((h) => ({ ...h, level: e.target.value }))} className="input-field">
-                    {HEAT_LEVELS.map((l) => <option key={l}>{l}</option>)}</select></div>
-              </div>
-              {heatSaved && <div className="text-xs text-green-600">✅ Heat index saved!</div>}
-              <button type="submit" disabled={heatSaving} className="btn-primary">
-                {heatSaving ? 'Saving…' : 'Save Heat Index'}
-              </button>
-            </form>
-          </AdminSection>
+          {role !== 'viewer' && (
+            <AdminSection title="⛽ Fuel Price Log — LPCC/DOE">
+              <form onSubmit={saveFuel} className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[['as_of','Date','date',null],['iloilo_gasoline_avg','Iloilo Gasoline (₱)','number','65.80'],['iloilo_diesel_avg','Iloilo Diesel (₱)','number','46.20'],['iloilo_kerosene_avg','Iloilo Kerosene (₱)','number','64.10'],['ph_gasoline_avg','PH Gasoline (₱)','number','56.71'],['ph_diesel_avg','PH Diesel (₱)','number','43.10']].map(([key,label,type,ph]) => (
+                    <div key={key}>
+                      <label className="block text-xs text-zinc-400 mb-1">{label}</label>
+                      <input type={type} step={type==='number'?'0.01':undefined} placeholder={ph} value={fuel[key]}
+                        onChange={e => setFuel(f => ({...f,[key]:e.target.value}))} className="input-field" />
+                    </div>
+                  ))}
+                </div>
+                {fuelError && <div className="text-xs text-red-500">{fuelError}</div>}
+                {fuelSaved && <div className="text-xs text-green-600">✅ Fuel prices saved to D1!</div>}
+                <button type="submit" disabled={fuelSaving} className="btn-primary">{fuelSaving?'Saving…':'Save Fuel Prices'}</button>
+              </form>
+            </AdminSection>
+          )}
+
+          {role !== 'viewer' && (
+            <AdminSection title="🌡️ Heat Index Entry — PAGASA">
+              <form onSubmit={saveHeat} className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div><label className="block text-xs text-zinc-400 mb-1">Date</label>
+                    <input type="date" value={heat.log_date} onChange={e=>setHeat(h=>({...h,log_date:e.target.value}))} className="input-field" /></div>
+                  <div><label className="block text-xs text-zinc-400 mb-1">Area</label>
+                    <select value={heat.area} onChange={e=>setHeat(h=>({...h,area:e.target.value}))} className="input-field">
+                      {AREAS.map(a=><option key={a}>{a}</option>)}</select></div>
+                  <div><label className="block text-xs text-zinc-400 mb-1">Heat Index (°C)</label>
+                    <input type="number" step="0.1" placeholder="41" value={heat.heat_index_c} onChange={e=>setHeat(h=>({...h,heat_index_c:e.target.value}))} className="input-field" /></div>
+                  <div><label className="block text-xs text-zinc-400 mb-1">Level</label>
+                    <select value={heat.level} onChange={e=>setHeat(h=>({...h,level:e.target.value}))} className="input-field">
+                      {HEAT_LEVELS.map(l=><option key={l}>{l}</option>)}</select></div>
+                </div>
+                {heatSaved && <div className="text-xs text-green-600">✅ Heat index saved!</div>}
+                <button type="submit" disabled={heatSaving} className="btn-primary">{heatSaving?'Saving…':'Save Heat Index'}</button>
+              </form>
+            </AdminSection>
+          )}
         </>
       )}
 
-      {tab === 'incidents' && (
-        <AdminSection title="📌 Incident Management"><AdminIncidents /></AdminSection>
-      )}
-      {tab === 'utility' && (
-        <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>
-      )}
-      {tab === 'kitchen' && (
-        <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>
-      )}
-      {tab === 'cmc-manage' && (
-        <AdminSection title="🏛️ CMC Meeting Board">
-          <AdminCmcManage />
-        </AdminSection>
-      )}
-      {tab === 'cmc-create' && (
-        <AdminSection title="➕ Create New CMC Meeting">
-          <AdminCmcCreate onSuccess={() => setTab('cmc-manage')} />
-        </AdminSection>
-      )}
-      {tab === 'settings' && (
-        <AdminSection title="⚙️ App Settings (D1)"><AdminSettings /></AdminSection>
-      )}
-      {tab === 'audit' && (
-        <AdminSection title="📋 Audit Log"><AdminAuditLog /></AdminSection>
-      )}
+      {tab === 'incidents'     && <AdminSection title="📌 Incident Management"><AdminIncidents /></AdminSection>}
+      {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>}
+      {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>}
+      {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage /></AdminSection>}
+      {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
+      {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications /></AdminSection>}
+      {tab === 'settings'      && role === 'admin' && <AdminSection title="⚙️ App Settings (D1)"><AdminSettings /></AdminSection>}
+      {tab === 'users'         && role === 'admin' && <AdminSection title="👥 User Management"><AdminUserManagement /></AdminSection>}
+      {tab === 'audit'         && role === 'admin' && <AdminSection title="📋 Audit Log"><AdminAuditLog /></AdminSection>}
     </div>
   )
 }

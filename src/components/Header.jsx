@@ -1,10 +1,23 @@
+import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
 
-export default function Header() {
+export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen } = useStore()
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = now.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  const [time, setTime] = useState(new Date())
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const timeStr = time.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = time.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+
+  const roleColor = {
+    admin:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    operator: 'bg-[#e6f4f5] text-[#01696f] dark:bg-[#01696f]/20 dark:text-[#4dc8cf]',
+    viewer:   'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+  }
 
   return (
     <header
@@ -12,6 +25,7 @@ export default function Header() {
         sidebarOpen ? 'left-56' : 'left-0'
       }`}
     >
+      {/* Sidebar toggle */}
       <button
         onClick={toggleSidebar}
         aria-label="Toggle sidebar"
@@ -24,24 +38,48 @@ export default function Header() {
         </svg>
       </button>
 
+      {/* Title + live badge */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
           Civic Metro Iloilo Dashboard
         </span>
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
           Live
         </span>
       </div>
 
+      {/* Clock */}
       <div className="tabular hidden md:flex flex-col items-end text-xs shrink-0">
         <span className="font-semibold text-zinc-700 dark:text-zinc-200">{timeStr}</span>
         <span className="text-zinc-400">{dateStr}</span>
       </div>
 
+      {/* Logged-in user pill */}
+      {user && (
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <div className="flex flex-col items-end">
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-tight">
+              {user.full_name ?? user.username}
+            </span>
+            <span className={`text-[10px] font-semibold px-1.5 py-px rounded capitalize ${ roleColor[user.role] ?? roleColor.viewer }`}>
+              {user.role}
+            </span>
+          </div>
+          <button
+            onClick={onLogout}
+            title="Sign out"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0 text-sm"
+          >
+            ⏏
+          </button>
+        </div>
+      )}
+
+      {/* Dark mode */}
       <button
         onClick={toggleDarkMode}
-        aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={darkMode ? 'Light mode' : 'Dark mode'}
         className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 shrink-0"
       >
         {darkMode
