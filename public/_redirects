@@ -1,1 +1,4 @@
-/*  /index.html  200
+# SPA fallback — Cloudflare Pages handles this via wrangler.toml [[redirects]]
+# The old /*  /index.html  200 rule causes an infinite loop warning and is not needed.
+# Cloudflare Pages automatically serves index.html for unknown routes when
+# the build output is a single-page app. No rule needed here.
