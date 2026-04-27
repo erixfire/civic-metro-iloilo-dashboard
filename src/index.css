@@ -17,7 +17,7 @@
            bg-white dark:bg-zinc-900
            text-zinc-700 dark:text-zinc-200
            text-sm px-3 py-1.5
-           focus:outline-none focus:ring-2 focus:ring-brand-600;
+           focus:outline-none focus:ring-2 focus:ring-[#01696f];
   }
   .btn-primary {
     @apply w-full bg-[#01696f] hover:bg-[#015a5f] disabled:opacity-50
@@ -28,7 +28,10 @@
     @apply px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10
            bg-white dark:bg-zinc-800
            text-zinc-600 dark:text-zinc-300
-           text-sm font-medium hover:border-brand-600
+           text-sm font-medium hover:border-[#01696f]
            transition-colors cursor-pointer;
+  }
+  .label {
+    @apply block text-xs text-zinc-400 mb-1;
   }
 }
