@@ -14,12 +14,14 @@ import AdminKitchenSites       from './AdminKitchenSites'
 import AdminIncidents          from './AdminIncidents'
 import AdminUserManagement     from './AdminUserManagement'
 import AdminNotifications      from './AdminNotifications'
+import AdminFuelSync           from './AdminFuelSync'
 
 const ALL_TABS = [
   { id: 'overview',      label: '📊 Overview',       minRole: 'viewer'   },
   { id: 'incidents',     label: '📌 Incidents',       minRole: 'operator' },
   { id: 'utility',       label: '⚡ Utility Alerts',  minRole: 'operator' },
   { id: 'kitchen',       label: '🍲 Kitchen Sites',   minRole: 'operator' },
+  { id: 'fuel',          label: '⛽ Fuel Prices',      minRole: 'operator' },
   { id: 'cmc-manage',   label: '🏛️ CMC Manage',      minRole: 'operator' },
   { id: 'cmc-create',   label: '➕ CMC Create',       minRole: 'operator' },
   { id: 'notifications', label: '🔔 Push Alerts',     minRole: 'operator' },
@@ -70,17 +72,11 @@ function QuickLink({ icon, label, desc, onClick }) {
 export default function AdminPanel({ onNavigate, user }) {
   const role = user?.role ?? 'viewer'
   const visibleTabs = ALL_TABS.filter((t) => canSee(t.minRole, role))
-
   const [tab, setTab] = useState(visibleTabs[0]?.id ?? 'overview')
 
   const { getTotals, getToday, lastFetched, fetchData } = useKitchenStore()
   const { incidents, fetchIncidents }                   = useIncidentStore()
-
   const [dbStatus,   setDbStatus]   = useState('checking')
-  const [fuel,       setFuel]       = useState({ as_of: new Date().toISOString().split('T')[0], iloilo_gasoline_avg: '', iloilo_diesel_avg: '', iloilo_kerosene_avg: '', ph_gasoline_avg: '', ph_diesel_avg: '' })
-  const [fuelSaved,  setFuelSaved]  = useState(false)
-  const [fuelError,  setFuelError]  = useState('')
-  const [fuelSaving, setFuelSaving] = useState(false)
   const [heat,       setHeat]       = useState({ log_date: new Date().toISOString().split('T')[0], area: 'Iloilo City', heat_index_c: '', level: 'Extreme Caution' })
   const [heatSaved,  setHeatSaved]  = useState(false)
   const [heatSaving, setHeatSaving] = useState(false)
@@ -94,17 +90,6 @@ export default function AdminPanel({ onNavigate, user }) {
   function authHeader() {
     const t = localStorage.getItem('civic_admin_token')
     return t ? { Authorization: `Bearer ${t}` } : {}
-  }
-
-  async function saveFuel(e) {
-    e.preventDefault(); setFuelError('')
-    if (!fuel.iloilo_gasoline_avg || !fuel.iloilo_diesel_avg) return setFuelError('Gasoline and Diesel are required.')
-    setFuelSaving(true)
-    try {
-      const r = await fetch('/api/fuel-prices', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(fuel) })
-      if (!r.ok) throw new Error('Save failed')
-      setFuelSaved(true); setTimeout(() => setFuelSaved(false), 3000)
-    } catch (e) { setFuelError(e.message) } finally { setFuelSaving(false) }
   }
 
   async function saveHeat(e) {
@@ -124,10 +109,9 @@ export default function AdminPanel({ onNavigate, user }) {
   return (
     <div className="space-y-5">
 
-      {/* Role badge */}
       {role === 'viewer' && (
         <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2">
-          <span>👁️</span> You are in <strong>Viewer</strong> mode — read-only access. Contact an admin to request operator permissions.
+          <span>👁️</span> You are in <strong>Viewer</strong> mode — read-only access.
         </div>
       )}
 
@@ -166,30 +150,11 @@ export default function AdminPanel({ onNavigate, user }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
                 <QuickLink icon="🏛️" label="CMC Meeting Board"   desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
-                <QuickLink icon="🍲" label="Log Kitchen Feeding"  desc="Post today's CSWDO figures"       onClick={() => onNavigate('community-kitchen')} />
+                <QuickLink icon="⛽" label="Fuel Prices"         desc="DOE sync or manual LPCC entry"     onClick={() => setTab('fuel')} />
                 <QuickLink icon="🔔" label="Push Notifications"  desc="Send alerts to all subscribers"   onClick={() => setTab('notifications')} />
                 <QuickLink icon="⚡" label="Utility Alerts"      desc="Manage power/water notices"       onClick={() => setTab('utility')} />
                 {role === 'admin' && <QuickLink icon="👥" label="User Management" desc="Add/deactivate operator accounts" onClick={() => setTab('users')} />}
               </div>
-            </AdminSection>
-          )}
-
-          {role !== 'viewer' && (
-            <AdminSection title="⛽ Fuel Price Log — LPCC/DOE">
-              <form onSubmit={saveFuel} className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[['as_of','Date','date',null],['iloilo_gasoline_avg','Iloilo Gasoline (₱)','number','65.80'],['iloilo_diesel_avg','Iloilo Diesel (₱)','number','46.20'],['iloilo_kerosene_avg','Iloilo Kerosene (₱)','number','64.10'],['ph_gasoline_avg','PH Gasoline (₱)','number','56.71'],['ph_diesel_avg','PH Diesel (₱)','number','43.10']].map(([key,label,type,ph]) => (
-                    <div key={key}>
-                      <label className="block text-xs text-zinc-400 mb-1">{label}</label>
-                      <input type={type} step={type==='number'?'0.01':undefined} placeholder={ph} value={fuel[key]}
-                        onChange={e => setFuel(f => ({...f,[key]:e.target.value}))} className="input-field" />
-                    </div>
-                  ))}
-                </div>
-                {fuelError && <div className="text-xs text-red-500">{fuelError}</div>}
-                {fuelSaved && <div className="text-xs text-green-600">✅ Fuel prices saved to D1!</div>}
-                <button type="submit" disabled={fuelSaving} className="btn-primary">{fuelSaving?'Saving…':'Save Fuel Prices'}</button>
-              </form>
             </AdminSection>
           )}
 
@@ -219,6 +184,7 @@ export default function AdminPanel({ onNavigate, user }) {
       {tab === 'incidents'     && <AdminSection title="📌 Incident Management"><AdminIncidents /></AdminSection>}
       {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>}
       {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>}
+      {tab === 'fuel'          && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync /></AdminSection>}
       {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage /></AdminSection>}
       {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
       {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications /></AdminSection>}

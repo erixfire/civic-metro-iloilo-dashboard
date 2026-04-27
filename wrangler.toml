@@ -1,11 +1,36 @@
-# wrangler.toml — Civic Metro Iloilo Dashboard
-# Cloudflare Pages + D1 configuration
+# Cloudflare Pages / Workers configuration
+# https://developers.cloudflare.com/workers/wrangler/configuration/
 
 name = "civic-metro-iloilo-dashboard"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "dist"
 
+# ---- D1 Database binding ---------------------------------------------------
 [[d1_databases]]
-binding       = "DB"                          # env.DB in all Functions
-database_name = "civic-ilo-db"                # your D1 database name
-database_id   = "f5c2e5d9-d5c7-45a9-acd5-f1e2d296bbba"
+binding     = "DB"
+database_name = "civic-iloilo-db"
+database_id   = "YOUR_D1_DATABASE_ID"   # replace with your actual D1 ID from Cloudflare dashboard
+
+# ---- Cron Triggers ---------------------------------------------------------
+# Fuel price auto-sync: every Tuesday at 00:00 UTC = 08:00 PHT
+# Cloudflare Pages does not support crons natively — use a Worker instead.
+# See: functions/api/fuel-prices/sync.js  (exports `scheduled`)
+#
+# To enable:
+# 1. Deploy as a standalone Worker (not Pages) OR use Pages + Workers hybrid:
+#    wrangler deploy functions/api/fuel-prices/sync.js --name civic-fuel-cron
+# 2. Add cron in wrangler.toml of that Worker:
+#
+# [triggers]
+# crons = ["0 0 * * 2"]   # every Tuesday 00:00 UTC
+#
+# OR schedule manually via Cloudflare Dashboard:
+#   Workers & Pages → civic-fuel-cron → Triggers → Add Cron Trigger
+#   Value: 0 0 * * 2
+
+# ---- Environment variables (set in Cloudflare Pages dashboard) -------------
+# JWT_SECRET           = <long random string>
+# VAPID_PUBLIC_KEY     = <from npx web-push generate-vapid-keys>  (optional)
+# VAPID_PRIVATE_KEY    = <from npx web-push generate-vapid-keys>  (optional)
+# VAPID_SUBJECT        = mailto:it@iloilocity.gov.ph               (optional)
+# VITE_VAPID_PUBLIC_KEY= <same as VAPID_PUBLIC_KEY>                (optional)
