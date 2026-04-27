@@ -1,44 +1,47 @@
-import useIncidentStore from '../store/useIncidentStore'
-import { useWeather }   from '../hooks/useWeather'
+import useIncidentStore    from '../store/useIncidentStore'
+import { useWeather }       from '../hooks/useWeather'
 import { useUtilityAlerts } from '../hooks/useUtilityAlerts'
+import useKitchenStore      from '../store/useKitchenStore'
 
 export default function KpiBar() {
-  const { weather }   = useWeather()
-  const incidents     = useIncidentStore((s) => s.incidents)
-  const { alerts }    = useUtilityAlerts()
+  const { weather } = useWeather()
+  const incidents   = useIncidentStore((s) => s.incidents)
+  const { alerts }  = useUtilityAlerts()
+  const { getToday } = useKitchenStore()
 
   const activeIncidents = incidents.filter((i) => i.status === 'active').length
   const activeAlerts    = alerts.filter((a) => a.severity === 'warning' || a.severity === 'critical').length
-  const heatIndex       = weather?.heatIndex    ?? 41
+  const heatIndex       = weather?.heatIndex    ?? '—'
   const heatIndexCls    = weather?.heatIndexCls ?? 'text-orange-500'
+  const todayKitchen    = getToday()
 
   const KPI_STATS = [
     {
-      id: 'k1',
+      id:    'k1',
       label: 'Utility Alerts',
       value: activeAlerts,
       color: activeAlerts > 0 ? 'text-red-500' : 'text-green-500',
       sub:   'active warnings · D1',
     },
     {
-      id: 'k2',
+      id:    'k2',
       label: 'Incidents',
       value: activeIncidents,
       color: activeIncidents > 2 ? 'text-yellow-500' : 'text-zinc-500',
       sub:   'active reports',
     },
     {
-      id: 'k3',
-      label: 'CSWDO Cases Today',
-      value: 14,
+      id:    'k3',
+      label: 'Families Fed Today',
+      value: todayKitchen?.families ?? '—',
       color: 'text-[#01696f]',
-      sub:   'manual · no live API',
+      sub:   'community kitchen · D1',
     },
     {
-      id: 'k4',
+      id:    'k4',
       label: 'Heat Index',
       value: heatIndex,
-      unit:  '°C',
+      unit:  heatIndex !== '—' ? '°C' : '',
       color: heatIndexCls,
       sub:   weather ? 'Open-Meteo · live' : 'fallback',
     },
