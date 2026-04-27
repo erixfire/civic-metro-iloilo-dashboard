@@ -13,8 +13,23 @@ import FuelWatchCard from './components/FuelWatchCard'
 import HeatIndexCard from './components/HeatIndexCard'
 import HeatIndexNewsCard from './components/HeatIndexNewsCard'
 
+// PWA: handle ?section= deep-link shortcut (from manifest shortcuts)
+function usePwaDeepLink() {
+  const setActiveSection = useStore((s) => s.setActiveSection)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const section = params.get('section')
+    if (section) {
+      setActiveSection(section)
+      // Clean up URL without reloading
+      window.history.replaceState({}, '', '/')
+    }
+  }, [setActiveSection])
+}
+
 export default function App() {
   const { darkMode, sidebarOpen, activeSection } = useStore()
+  usePwaDeepLink()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
