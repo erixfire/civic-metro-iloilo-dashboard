@@ -1,5 +1,6 @@
 import { useWeather } from '../hooks/useWeather'
-import { WEATHER, TIDE } from '../data/mockData'
+import { useTide } from '../hooks/useTide'
+import { WEATHER } from '../data/mockData'
 
 const UV_LABEL = (v) => {
   if (v <= 2)  return { label: 'Low',       cls: 'text-green-500' }
@@ -29,12 +30,13 @@ function Stat({ label, value, extra }) {
 
 export default function WeatherCard() {
   const { weather, loading, error } = useWeather()
-  const w = weather ?? WEATHER   // live data first, mock fallback
+  const { tide }                    = useTide()
+  const w = weather ?? WEATHER
 
-  const uv = UV_LABEL(w.uvIndex ?? w.uvIndex ?? 0)
+  const uv     = UV_LABEL(w.uvIndex ?? 0)
   const hiLabel = weather?.heatIndexLabel ?? w.heatIndexLabel ?? 'N/A'
-  const hiCls   = weather?.heatIndexCls   ?? w.heatIndexColor  ?? 'text-zinc-400'
-  const hiVal   = weather?.heatIndex      ?? w.heatIndex       ?? ''
+  const hiCls   = weather?.heatIndexCls   ?? w.heatIndexColor ?? 'text-zinc-400'
+  const hiVal   = weather?.heatIndex      ?? w.heatIndex      ?? ''
 
   return (
     <div className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm h-full">
@@ -52,16 +54,12 @@ export default function WeatherCard() {
       <div className="flex items-center gap-4 mb-4">
         <WeatherIcon code={w.weatherCode} />
         <div>
-          <div className="tabular text-4xl font-bold text-zinc-800 dark:text-zinc-100">
-            {w.temp}°C
-          </div>
+          <div className="tabular text-4xl font-bold text-zinc-800 dark:text-zinc-100">{w.temp}°C</div>
           <div className="text-sm text-zinc-500">{w.condition}</div>
         </div>
         <div className="ml-auto text-right">
           <div className="text-xs text-zinc-400">Feels like</div>
-          <div className="tabular text-xl font-semibold text-zinc-700 dark:text-zinc-200">
-            {w.feelsLike}°C
-          </div>
+          <div className="tabular text-xl font-semibold text-zinc-700 dark:text-zinc-200">{w.feelsLike}°C</div>
         </div>
       </div>
 
@@ -80,24 +78,27 @@ export default function WeatherCard() {
         />
       </div>
 
-      <div className="border-t border-black/10 dark:border-white/10 pt-3">
-        <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
-          🌊 Iloilo River Tide
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="tabular text-2xl font-bold text-brand-600 dark:text-brand-400">
-              {TIDE.currentLevel}{' '}
-              <span className="text-base font-normal">m</span>
+      {/* Tide — live from useTide hook */}
+      {tide && (
+        <div className="border-t border-black/10 dark:border-white/10 pt-3">
+          <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+            🌊 Iloilo River Tide
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="tabular text-2xl font-bold text-brand-600 dark:text-brand-400">
+                {tide.currentLevel}{' '}
+                <span className="text-base font-normal">m</span>
+              </div>
+              <div className={`text-xs font-medium ${tide.statusColor}`}>{tide.status}</div>
             </div>
-            <div className={`text-xs font-medium ${TIDE.statusColor}`}>{TIDE.status}</div>
-          </div>
-          <div className="text-right text-xs text-zinc-500 space-y-1">
-            <div>⬆ High: {TIDE.highTide.level}m at {TIDE.highTide.time}</div>
-            <div>⬇ Low:  {TIDE.lowTide.level}m at  {TIDE.lowTide.time}</div>
+            <div className="text-right text-xs text-zinc-500 space-y-1">
+              <div>⬆ High: {tide.highTide?.level}m at {tide.highTide?.time}</div>
+              <div>⬇ Low:  {tide.lowTide?.level}m at {tide.lowTide?.time}</div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

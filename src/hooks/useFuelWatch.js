@@ -1,34 +1,38 @@
 import { useEffect, useState } from 'react'
 
-const API_URL = '/api/fuel-watch'
+const API_URL    = '/api/fuel-watch'
+const REFRESH_MS = 30 * 60 * 1000 // 30 minutes
 
 export function useFuelWatch() {
-  const [data, setData] = useState(null)
+  const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError]     = useState(null)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
+
     async function load() {
       try {
         setLoading(true)
-        const res = await fetch(API_URL, { headers: { Accept: 'application/json' } })
+        const res = await fetch(API_URL, {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        })
         if (!res.ok) throw new Error('Failed to fetch fuel data')
         const json = await res.json()
-        if (!cancelled) {
-          setData(json)
-          setError(null)
-        }
+        setData(json)
+        setError(null)
       } catch (e) {
-        if (!cancelled) setError(e.message)
+        if (e.name !== 'AbortError') setError(e.message)
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
+
     load()
-    const id = setInterval(load, 30 * 60 * 1000)
+    const id = setInterval(load, REFRESH_MS)
     return () => {
-      cancelled = true
+      controller.abort()
       clearInterval(id)
     }
   }, [])

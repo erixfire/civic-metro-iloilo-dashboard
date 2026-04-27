@@ -2,19 +2,14 @@ import { useState } from 'react'
 import useIncidentStore from '../store/useIncidentStore'
 
 const INCIDENT_TYPES = [
-  { value: 'flood',       label: '💧 Flood / Rising Water' },
-  { value: 'fire',        label: '🔥 Fire' },
-  { value: 'traffic',     label: '🚦 Traffic Accident / Obstruction' },
-  { value: 'medical',     label: '🚑 Medical Emergency' },
-  { value: 'power',       label: '⚡ Power Line / Electrical' },
-  { value: 'landslide',   label: '⛰️ Landslide / Ground Movement' },
-  { value: 'crime',       label: '🚨 Crime / Security' },
-  { value: 'other',       label: 'ℹ️ Other' },
-]
-
-const DISTRICTS = [
-  'City Proper', 'Jaro', 'La Paz', 'Mandurriao', 'Molo',
-  'Arevalo', 'Lapaz', 'Bonifacio', 'Villa Arevalo', 'Other',
+  { value: 'flood',     label: '💧 Flood / Rising Water' },
+  { value: 'fire',      label: '🔥 Fire' },
+  { value: 'traffic',   label: '🚦 Traffic Accident / Obstruction' },
+  { value: 'medical',   label: '🚑 Medical Emergency' },
+  { value: 'power',     label: '⚡ Power Line / Electrical' },
+  { value: 'landslide', label: '⛰️ Landslide / Ground Movement' },
+  { value: 'crime',     label: '🚨 Crime / Security' },
+  { value: 'other',     label: 'ℹ️ Other' },
 ]
 
 const SEVERITY = [
@@ -22,6 +17,23 @@ const SEVERITY = [
   { value: 'moderate', label: 'Moderate', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300' },
   { value: 'high',     label: 'High',     cls: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
 ]
+
+// District centroid coordinates — incidents without a GPS pin
+// will appear at the district center on the TrafficMap.
+const DISTRICT_CENTROIDS = {
+  'City Proper':   { lat: 10.6958, lng: 122.5694 },
+  'Jaro':          { lat: 10.7290, lng: 122.5476 },
+  'La Paz':        { lat: 10.7115, lng: 122.5553 },
+  'Mandurriao':    { lat: 10.7210, lng: 122.5480 },
+  'Molo':          { lat: 10.6827, lng: 122.5597 },
+  'Arevalo':       { lat: 10.6682, lng: 122.5437 },
+  'Lapaz':         { lat: 10.7115, lng: 122.5553 },
+  'Bonifacio':     { lat: 10.7050, lng: 122.5640 },
+  'Villa Arevalo': { lat: 10.6700, lng: 122.5500 },
+  'Other':         { lat: 10.6965, lng: 122.5654 }, // Iloilo city center
+}
+
+const DISTRICTS = Object.keys(DISTRICT_CENTROIDS)
 
 export default function IncidentReportForm({ onSubmitted }) {
   const addIncident = useIncidentStore((s) => s.addIncident)
@@ -42,11 +54,15 @@ export default function IncidentReportForm({ onSubmitted }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!form.type)     return setError('Please select an incident type.')
-    if (!form.district) return setError('Please select a district.')
+    if (!form.type)               return setError('Please select an incident type.')
+    if (!form.district)           return setError('Please select a district.')
     if (!form.description.trim()) return setError('Please describe the incident.')
     setError('')
-    addIncident(form)
+
+    // Attach district centroid so the marker shows on TrafficMap
+    const centroid = DISTRICT_CENTROIDS[form.district] ?? DISTRICT_CENTROIDS['Other']
+    addIncident({ ...form, lat: centroid.lat, lng: centroid.lng })
+
     setSubmitted(true)
     setTimeout(() => {
       setSubmitted(false)
@@ -71,6 +87,7 @@ export default function IncidentReportForm({ onSubmitted }) {
         📢 Submit Incident Report
       </h2>
       <form onSubmit={handleSubmit} className="space-y-4">
+
         {/* Type */}
         <div>
           <label className="block text-xs font-medium text-zinc-500 mb-1">Incident Type <span className="text-red-500">*</span></label>
