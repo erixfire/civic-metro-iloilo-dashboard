@@ -1,69 +1,92 @@
 // Cloudflare Pages Function for Fuel Watch — Iloilo
-// This runs at /api/fuel-watch on your Pages project (no manual routes needed).
+// Runs at /api/fuel-watch. Fetches national PH gasoline benchmark from GlobalPetrolPrices.
+// Falls back to DOE-sourced static values if scrape fails.
+
+// Static fallback: post-April 14, 2026 rollback DOE benchmarks (national averages)
+const FALLBACK = {
+  gasoline: 65.80,
+  diesel: 46.20,
+  kerosene: 64.10,
+  source: 'Static fallback — DOE national benchmark post-Apr 14 2026 rollback',
+}
 
 export async function onRequest(context) {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
 
-    // 1) Fetch Philippines gasoline price (DOE-based) from GlobalPetrolPrices
-    const phResp = await fetch(
-      'https://www.globalpetrolprices.com/Philippines/gasoline_prices/',
-      { signal: controller.signal },
-    )
-    if (!phResp.ok) throw new Error('Failed to fetch PH fuel prices')
-    const phHtml = await phResp.text()
+    let phPrice = null
+    let scrapedSource = 'GlobalPetrolPrices — PH gasoline (DOE-based)'
 
-    // Naive scrape for the first numeric price in PHP, e.g., "96.50 Philippine Peso/liter"
-    const phMatch = phHtml.match(/([0-9]{2,3}\.[0-9]{2})\s*Philippine Peso/)
-    const phPrice = phMatch ? parseFloat(phMatch[1]) : null
-
-    // 2) Fetch Iloilo gasoline price estimate from Numbeo
-    const iloResp = await fetch('https://www.numbeo.com/gas-prices/in/Iloilo', {
-      signal: controller.signal,
-    })
-    if (!iloResp.ok) throw new Error('Failed to fetch Iloilo fuel prices')
-    const iloHtml = await iloResp.text()
-
-    // Scrape "Gasoline (1 Liter)" row, e.g., "Gasoline (1 Liter)  75.00 ₱"
-    const rowMatch = iloHtml.match(
-      /Gasoline \(1 Liter\)[^0-9]*([0-9]{2,3}\.[0-9]{2})/,
-    )
-    const iloPrice = rowMatch ? parseFloat(rowMatch[1]) : null
+    try {
+      const phResp = await fetch(
+        'https://www.globalpetrolprices.com/Philippines/gasoline_prices/',
+        {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; CivicIloiloDashboard/1.0)',
+            'Accept': 'text/html',
+          },
+        },
+      )
+      if (phResp.ok) {
+        const html = await phResp.text()
+        // Try multiple patterns for resilience
+        const patterns = [
+          /([0-9]{2,3}\.[0-9]{1,2})\s*Philippine Peso/i,
+          /PHP\s*([0-9]{2,3}\.[0-9]{1,2})/i,
+          /"PHP"[^0-9]*([0-9]{2,3}\.[0-9]{1,2})/,
+        ]
+        for (const p of patterns) {
+          const m = html.match(p)
+          if (m) {
+            const v = parseFloat(m[1])
+            // Sanity check: PH gasoline must be between 40 and 120 PHP/L
+            if (v >= 40 && v <= 120) {
+              phPrice = v
+              break
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // scrape failed; will use fallback
+    }
 
     clearTimeout(timeoutId)
 
-    const body = {
-      iloilo: {
-        gasoline: iloPrice,
-        source: 'Numbeo — Gasoline (1 Liter) in Iloilo',
-      },
-      philippines: {
-        gasoline: phPrice,
-        source:
-          'GlobalPetrolPrices — Philippines gasoline prices (DOE-based)',
-      },
-      lastUpdated: new Date().toISOString(),
-    }
+    const usingFallback = phPrice === null
+    const gasoline = phPrice ?? FALLBACK.gasoline
 
-    return new Response(JSON.stringify(body, null, 2), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=1800', // 30 minutes
-      },
-    })
-  } catch (err) {
     return new Response(
-      JSON.stringify({
-        error: 'Failed to fetch fuel data',
-        message: err.message,
-      }),
+      JSON.stringify(
+        {
+          philippines: {
+            gasoline,
+            diesel: FALLBACK.diesel,
+            kerosene: FALLBACK.kerosene,
+            source: usingFallback ? FALLBACK.source : scrapedSource,
+            isFallback: usingFallback,
+          },
+          lastUpdated: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
       {
-        status: 500,
+        status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=1800',
         },
+      },
+    )
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: 'Fuel Watch function error', message: err.message }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
       },
     )
   }
