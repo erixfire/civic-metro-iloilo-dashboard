@@ -18,6 +18,7 @@ import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import KitchenFeedingCard from './components/KitchenFeedingCard'
 import CmcBoard from './components/CmcBoard'
+import AdminPanel from './components/AdminPanel'
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
@@ -32,7 +33,7 @@ function usePwaDeepLink() {
 }
 
 export default function App() {
-  const { darkMode, sidebarOpen, activeSection } = useStore()
+  const { darkMode, sidebarOpen, activeSection, setActiveSection } = useStore()
   usePwaDeepLink()
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function App() {
       >
         <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
 
-          {/* ── DASHBOARD ─────────────────────────────────────── */}
+          {/* ── DASHBOARD ────────────────────────────────────── */}
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
@@ -60,10 +61,9 @@ export default function App() {
                   <FuelWatchCard />
                 </div>
                 <div className="lg:col-span-2">
-                  <UtilityAlertsWidget />
+                  <HeatIndexCard />
                 </div>
               </div>
-              <div className="mb-5"><HeatIndexCard /></div>
               <div className="mb-5"><TrafficMap /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard />
@@ -74,15 +74,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── CMC MEETING BOARD ─────────────────────────────── */}
-          {activeSection === 'cmc' && (
-            <>
-              <SectionTitle>🏛️ Crisis Management Council — Meeting Board</SectionTitle>
-              <CmcBoard />
-            </>
-          )}
-
-          {/* ── WEATHER, TIDE, HEAT INDEX, FLOOD & RAIN ───────── */}
+          {/* ── WEATHER, TIDE, HEAT INDEX, FLOOD & RAIN ─────── */}
           {activeSection === 'weather' && (
             <>
               <SectionTitle>🌤️ Weather, Tide, Heat Index & Flood Monitor</SectionTitle>
@@ -91,9 +83,7 @@ export default function App() {
                 <HeatIndexCard />
                 <TideCard />
               </div>
-              <div className="mb-5">
-                <HeatIndexNewsCard />
-              </div>
+              <div className="mb-5"><HeatIndexNewsCard /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <RainGaugeCard />
                 <FuelWatchCard />
@@ -102,7 +92,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── INCIDENT REPORTS ──────────────────────────────── */}
+          {/* ── INCIDENT REPORTS ────────────────────────────── */}
           {activeSection === 'incidents' && (
             <>
               <SectionTitle>📌 CDRRMO Incident Reports</SectionTitle>
@@ -114,7 +104,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── TRAFFIC ───────────────────────────────────────── */}
+          {/* ── TRAFFIC ─────────────────────────────────────── */}
           {activeSection === 'traffic' && (
             <>
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
@@ -123,7 +113,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── UTILITIES ─────────────────────────────────────── */}
+          {/* ── UTILITIES ───────────────────────────────────── */}
           {activeSection === 'utilities' && (
             <>
               <SectionTitle>⚡ Utility Advisories</SectionTitle>
@@ -131,7 +121,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── CSWDO ─────────────────────────────────────────── */}
+          {/* ── CSWDO ───────────────────────────────────────── */}
           {activeSection === 'cswdo' && (
             <>
               <SectionTitle>🧑‍🤝‍🧑 CSWDO Services</SectionTitle>
@@ -140,7 +130,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── COMMUNITY KITCHEN ─────────────────────────────── */}
+          {/* ── COMMUNITY KITCHEN ───────────────────────────── */}
           {activeSection === 'community-kitchen' && (
             <>
               <SectionTitle>🍲 Community Kitchen Feeding Program</SectionTitle>
@@ -148,11 +138,27 @@ export default function App() {
             </>
           )}
 
-          {/* ── EMERGENCY ─────────────────────────────────────── */}
+          {/* ── EMERGENCY ───────────────────────────────────── */}
           {activeSection === 'emergency' && (
             <>
               <SectionTitle>📞 Emergency Directory</SectionTitle>
               <div className="max-w-xl"><EmergencyDirectory /></div>
+            </>
+          )}
+
+          {/* ── ADMIN PANEL ───────────────────────────────────── */}
+          {activeSection === 'admin' && (
+            <>
+              <SectionTitle>⚙️ Admin Panel — OpCen Operator Controls</SectionTitle>
+              <AdminPanel onNavigate={setActiveSection} />
+            </>
+          )}
+
+          {/* ── CMC MEETING BOARD ───────────────────────────── */}
+          {activeSection === 'cmc' && (
+            <>
+              <SectionTitle>🏛️ Crisis Management Council — Meeting Board</SectionTitle>
+              <CmcBoard />
             </>
           )}
 

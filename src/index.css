@@ -3,37 +3,32 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-bg: #f7f6f2;
-    --color-surface: #f9f8f5;
-    --color-primary: #01696f;
-    --color-text: #28251d;
-    --color-text-muted: #7a7974;
-  }
-  .dark {
-    --color-bg: #171614;
-    --color-surface: #1c1b19;
-    --color-primary: #4f98a3;
-    --color-text: #cdccca;
-    --color-text-muted: #797876;
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
   body {
-    font-family: 'Inter', system-ui, sans-serif;
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    min-height: 100dvh;
-    -webkit-font-smoothing: antialiased;
+    @apply antialiased text-zinc-800 dark:text-zinc-100;
   }
-  .tabular { font-variant-numeric: tabular-nums lining-nums; }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-@layer utilities {
-  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
-  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d1ca; border-radius: 99px; }
-  .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #393836; }
+@layer components {
+  .input-field {
+    @apply w-full rounded-lg border border-black/10 dark:border-white/10
+           bg-white dark:bg-zinc-900
+           text-zinc-700 dark:text-zinc-200
+           text-sm px-3 py-1.5
+           focus:outline-none focus:ring-2 focus:ring-brand-600;
+  }
+  .btn-primary {
+    @apply w-full bg-[#01696f] hover:bg-[#015a5f] disabled:opacity-50
+           text-white text-sm font-semibold rounded-lg py-2
+           transition-colors cursor-pointer;
+  }
+  .btn-secondary {
+    @apply px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10
+           bg-white dark:bg-zinc-800
+           text-zinc-600 dark:text-zinc-300
+           text-sm font-medium hover:border-brand-600
+           transition-colors cursor-pointer;
+  }
 }
-
-.leaflet-container { font-family: 'Inter', sans-serif !important; }

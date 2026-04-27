@@ -1,19 +1,24 @@
 import useStore from '../store/useStore'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',        label: 'Dashboard',          icon: '🏠' },
-  { id: 'cmc',              label: 'CMC Meetings',        icon: '🏛️' },
-  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️' },
-  { id: 'incidents',        label: 'Incident Reports',    icon: '📌' },
-  { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦' },
-  { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡' },
-  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🧑‍🤝‍🧑' },
-  { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲' },
-  { id: 'emergency',        label: 'Emergency Directory', icon: '📞' },
+  { id: 'dashboard',        label: 'Dashboard',          icon: '🏠', group: 'main' },
+  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️', group: 'main' },
+  { id: 'incidents',        label: 'Incident Reports',    icon: '📌', group: 'main' },
+  { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦', group: 'main' },
+  { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡',  group: 'main' },
+  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🧑‍🤝‍🧑', group: 'main' },
+  { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲', group: 'main' },
+  { id: 'emergency',        label: 'Emergency Directory', icon: '📞', group: 'main' },
+  // Admin group
+  { id: 'admin',            label: 'Admin Panel',         icon: '⚙️',  group: 'admin' },
+  { id: 'cmc',              label: 'CMC Meetings',        icon: '🏛️', group: 'admin' },
 ]
 
 export default function Sidebar() {
   const { sidebarOpen, activeSection, setActiveSection } = useStore()
+
+  const mainItems  = NAV_ITEMS.filter((n) => n.group === 'main')
+  const adminItems = NAV_ITEMS.filter((n) => n.group === 'admin')
 
   return (
     <aside
@@ -34,15 +39,37 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+        {/* Main items */}
+        {mainItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveSection(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors text-left ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
               activeSection === item.id
                 ? 'bg-[#01696f] text-white'
                 : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+          >
+            <span className="text-base shrink-0">{item.icon}</span>
+            <span className="truncate">{item.label}</span>
+          </button>
+        ))}
+
+        {/* Admin divider */}
+        <div className="pt-3 pb-1 px-3">
+          <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Admin</div>
+        </div>
+
+        {/* Admin items */}
+        {adminItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveSection(item.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+              activeSection === item.id
+                ? 'bg-zinc-800 text-white dark:bg-zinc-700'
+                : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
             <span className="text-base shrink-0">{item.icon}</span>
