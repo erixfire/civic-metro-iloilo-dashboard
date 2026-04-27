@@ -12,16 +12,18 @@ import CswdoServices from './components/CswdoServices'
 import FuelWatchCard from './components/FuelWatchCard'
 import HeatIndexCard from './components/HeatIndexCard'
 import HeatIndexNewsCard from './components/HeatIndexNewsCard'
+import RainGaugeCard from './components/RainGaugeCard'
+import TideCard from './components/TideCard'
+import IncidentReportForm from './components/IncidentReportForm'
+import IncidentList from './components/IncidentList'
 
-// PWA: handle ?section= deep-link shortcut (from manifest shortcuts)
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    const params  = new URLSearchParams(window.location.search)
     const section = params.get('section')
     if (section) {
       setActiveSection(section)
-      // Clean up URL without reloading
       window.history.replaceState({}, '', '/')
     }
   }, [setActiveSection])
@@ -55,19 +57,13 @@ export default function App() {
                   <UtilityAlertsWidget />
                 </div>
               </div>
-              <div className="mb-5">
-                <HeatIndexCard />
-              </div>
-              <div className="mb-5">
-                <TrafficMap />
-              </div>
+              <div className="mb-5"><HeatIndexCard /></div>
+              <div className="mb-5"><TrafficMap /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard />
                 <EmergencyDirectory />
               </div>
-              <div className="mb-5">
-                <CswdoServices />
-              </div>
+              <div className="mb-5"><CswdoServices /></div>
             </>
           )}
 
@@ -79,9 +75,31 @@ export default function App() {
                 <HeatIndexCard />
                 <HeatIndexNewsCard />
               </div>
-              <div className="max-w-md">
-                <WeatherCard />
+              <div className="max-w-md"><WeatherCard /></div>
+            </>
+          )}
+
+          {/* FLOOD / RAIN MONITOR */}
+          {activeSection === 'flood-monitor' && (
+            <>
+              <SectionTitle>💧 Flood & Rain Gauge Monitor</SectionTitle>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+                <RainGaugeCard />
+                <TideCard />
               </div>
+              <div className="mb-5"><TrafficMap /></div>
+            </>
+          )}
+
+          {/* INCIDENT REPORTS */}
+          {activeSection === 'incidents' && (
+            <>
+              <SectionTitle>📌 CDRRMO Incident Reports</SectionTitle>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+                <IncidentReportForm />
+                <IncidentList />
+              </div>
+              <div className="mb-5"><TrafficMap /></div>
             </>
           )}
 
@@ -98,11 +116,13 @@ export default function App() {
           {activeSection === 'weather' && (
             <>
               <SectionTitle>🌤️ Weather & Tide</SectionTitle>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
                 <WeatherCard />
                 <HeatIndexCard />
+                <TideCard />
               </div>
-              <div className="max-w-md">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                <RainGaugeCard />
                 <FuelWatchCard />
               </div>
             </>
@@ -139,7 +159,5 @@ export default function App() {
 }
 
 function SectionTitle({ children }) {
-  return (
-    <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
-  )
+  return <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
 }
