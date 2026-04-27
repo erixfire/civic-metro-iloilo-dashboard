@@ -1,6 +1,6 @@
 /**
  * AdminPanel — Operator control center
- * Tabs: Overview | Utility Alerts | CMC | Settings | Audit Log
+ * Tabs: Overview | Utility Alerts | Kitchen Sites | CMC | Settings | Audit Log
  */
 import { useState, useEffect } from 'react'
 import useKitchenStore  from '../store/useKitchenStore'
@@ -9,13 +9,15 @@ import AdminUtilityAlerts from './AdminUtilityAlerts'
 import AdminCmcCreate     from './AdminCmcCreate'
 import AdminSettings      from './AdminSettings'
 import AdminAuditLog      from './AdminAuditLog'
+import AdminKitchenSites  from './AdminKitchenSites'
 
 const TABS = [
-  { id: 'overview',  label: '📊 Overview'      },
-  { id: 'utility',   label: '⚡ Utility Alerts' },
-  { id: 'cmc',       label: '🏛️ CMC'            },
-  { id: 'settings',  label: '⚙️ Settings'       },
-  { id: 'audit',     label: '📋 Audit Log'      },
+  { id: 'overview',  label: '📊 Overview'        },
+  { id: 'utility',   label: '⚡ Utility Alerts'   },
+  { id: 'kitchen',   label: '🍲 Kitchen Sites'    },
+  { id: 'cmc',       label: '🏛️ CMC'              },
+  { id: 'settings',  label: '⚙️ Settings'         },
+  { id: 'audit',     label: '📋 Audit Log'        },
 ]
 
 const AREAS       = ['Iloilo City','Dumangas, Iloilo','Lambunao, Iloilo','Pavia, Iloilo','Santa Barbara, Iloilo']
@@ -60,7 +62,6 @@ export default function AdminPanel({ onNavigate }) {
 
   const [dbStatus, setDbStatus] = useState('checking')
 
-  // Fuel form
   const [fuel, setFuel] = useState({
     as_of: new Date().toISOString().split('T')[0],
     iloilo_gasoline_avg: '', iloilo_diesel_avg: '',
@@ -70,7 +71,6 @@ export default function AdminPanel({ onNavigate }) {
   const [fuelError,  setFuelError]  = useState('')
   const [fuelSaving, setFuelSaving] = useState(false)
 
-  // Heat form
   const [heat, setHeat] = useState({
     log_date: new Date().toISOString().split('T')[0],
     area: 'Iloilo City', heat_index_c: '', level: 'Extreme Caution',
@@ -133,7 +133,6 @@ export default function AdminPanel({ onNavigate }) {
         ))}
       </div>
 
-      {/* ── OVERVIEW ─────────────────────────────────────────── */}
       {tab === 'overview' && (
         <>
           <AdminSection title="📊 Live D1 Stats">
@@ -152,12 +151,12 @@ export default function AdminPanel({ onNavigate }) {
 
           <AdminSection title="⚡ Quick Actions">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <QuickLink icon="🏛️" label="CMC Meetings"      desc="View board, action items" onClick={() => onNavigate('cmc')} />
-              <QuickLink icon="🍲" label="Log Kitchen Feeding" desc="Post today's CSWDO figures" onClick={() => onNavigate('community-kitchen')} />
-              <QuickLink icon="📌" label="Report Incident"    desc="Submit new CDRRMO incident" onClick={() => onNavigate('incidents')} />
-              <QuickLink icon="⚡" label="Utility Alerts"    desc="Manage power/water notices" onClick={() => setTab('utility')} />
-              <QuickLink icon="⛽" label="Fuel Prices"       desc="Log latest LPCC/DOE prices" onClick={() => {}} />
-              <QuickLink icon="🌡️" label="Heat Index Entry"  desc="Log PAGASA heat index"      onClick={() => {}} />
+              <QuickLink icon="🏛️" label="CMC Meetings"        desc="View board, action items"         onClick={() => onNavigate('cmc')} />
+              <QuickLink icon="🍲" label="Log Kitchen Feeding"   desc="Post today’s CSWDO figures"      onClick={() => onNavigate('community-kitchen')} />
+              <QuickLink icon="📌" label="Report Incident"      desc="Submit new CDRRMO incident"       onClick={() => onNavigate('incidents')} />
+              <QuickLink icon="⚡" label="Utility Alerts"       desc="Manage power/water notices"       onClick={() => setTab('utility')} />
+              <QuickLink icon="🍲" label="Kitchen Sites"        desc="Add/manage feeding stations"      onClick={() => setTab('kitchen')} />
+              <QuickLink icon="⚙️" label="App Settings"        desc="Edit dashboard config"           onClick={() => setTab('settings')} />
             </div>
           </AdminSection>
 
@@ -216,34 +215,27 @@ export default function AdminPanel({ onNavigate }) {
         </>
       )}
 
-      {/* ── UTILITY ALERTS ───────────────────────────────────── */}
       {tab === 'utility' && (
-        <AdminSection title="⚡ Utility Alert Management">
-          <AdminUtilityAlerts />
-        </AdminSection>
+        <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>
       )}
 
-      {/* ── CMC ──────────────────────────────────────────────── */}
+      {tab === 'kitchen' && (
+        <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>
+      )}
+
       {tab === 'cmc' && (
         <AdminSection title="🏛️ Create New CMC Meeting">
-          <AdminCmcCreate onSuccess={(id) => { onNavigate('cmc') }} />
+          <AdminCmcCreate onSuccess={() => onNavigate('cmc')} />
         </AdminSection>
       )}
 
-      {/* ── SETTINGS ─────────────────────────────────────────── */}
       {tab === 'settings' && (
-        <AdminSection title="⚙️ App Settings (D1)">
-          <AdminSettings />
-        </AdminSection>
+        <AdminSection title="⚙️ App Settings (D1)"><AdminSettings /></AdminSection>
       )}
 
-      {/* ── AUDIT LOG ────────────────────────────────────────── */}
       {tab === 'audit' && (
-        <AdminSection title="📋 Audit Log">
-          <AdminAuditLog />
-        </AdminSection>
+        <AdminSection title="📋 Audit Log"><AdminAuditLog /></AdminSection>
       )}
-
     </div>
   )
 }

@@ -1,38 +1,23 @@
+/**
+ * useHeatIndexNews — fetches heat index news from /api/heat-index-news
+ * Falls back to HEAT_INDEX_NEWS mock on failure.
+ */
 import { useState, useEffect } from 'react'
-import { HEAT_INDEX_NEWS } from '../data/mockData'
-
-const REFRESH_MS = 15 * 60 * 1000 // 15 minutes
+import { HEAT_INDEX_NEWS as MOCK } from '../data/mockData'
 
 export function useHeatIndexNews() {
-  const [data, setData]     = useState(null)
+  const [news,    setNews]    = useState(MOCK)
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState(null)
 
   useEffect(() => {
-    const controller = new AbortController()
+    let cancelled = false
+    fetch('/api/heat-index-news')
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setNews(d.items?.length > 0 ? d.items : MOCK) })
+      .catch(() => { if (!cancelled) setNews(MOCK) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
-    async function fetchNews() {
-      try {
-        const res = await fetch('/api/heat-index-news', { signal: controller.signal })
-        if (!res.ok) throw new Error(`API error ${res.status}`)
-        const json = await res.json()
-        setData(json)
-        setError(null)
-      } catch (e) {
-        if (e.name !== 'AbortError') {
-          setError(e.message)
-          // Keep showing previous data or fall back to static mock
-          if (!data) setData({ items: HEAT_INDEX_NEWS, source: 'static fallback', isFallback: true })
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchNews()
-    const interval = setInterval(fetchNews, REFRESH_MS)
-    return () => { controller.abort(); clearInterval(interval) }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return { data, loading, error }
+  return { news, loading }
 }
