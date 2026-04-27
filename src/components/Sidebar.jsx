@@ -1,15 +1,16 @@
 import useStore from '../store/useStore'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',     label: 'Dashboard',          icon: '🏠' },
-  { id: 'heat-index',    label: 'Heat Index',          icon: '🌡️' },
-  { id: 'flood-monitor', label: 'Flood & Rain',        icon: '💧' },
-  { id: 'incidents',     label: 'Incident Reports',    icon: '📌' },
-  { id: 'traffic',       label: 'Traffic & Transport', icon: '🚦' },
-  { id: 'weather',       label: 'Weather & Tide',      icon: '🌤️' },
-  { id: 'utilities',     label: 'Utility Alerts',      icon: '⚡' },
-  { id: 'cswdo',         label: 'CSWDO Services',      icon: '🏛️' },
-  { id: 'emergency',     label: 'Emergency Directory', icon: '📞' },
+  { id: 'dashboard',        label: 'Dashboard',          icon: '🏠' },
+  { id: 'heat-index',       label: 'Heat Index',          icon: '🌡️' },
+  { id: 'flood-monitor',    label: 'Flood & Rain',        icon: '💧' },
+  { id: 'incidents',        label: 'Incident Reports',    icon: '📌' },
+  { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦' },
+  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️' },
+  { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡' },
+  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🏛️' },
+  { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲' },
+  { id: 'emergency',        label: 'Emergency Directory', icon: '📞' },
 ]
 
 export default function Sidebar() {
@@ -52,7 +53,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="px-5 py-3 border-t border-black/10 dark:border-white/10 text-xs text-zinc-400 shrink-0">
-        Iloilo City Gov’t © 2026
+        Iloilo City Gov't © 2026
       </div>
     </aside>
   )

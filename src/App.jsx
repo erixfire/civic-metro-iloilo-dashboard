@@ -16,6 +16,7 @@ import RainGaugeCard from './components/RainGaugeCard'
 import TideCard from './components/TideCard'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
+import KitchenFeedingCard from './components/KitchenFeedingCard'
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
@@ -39,18 +40,8 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
-      {/* Sidebar sits above header (z-50) */}
       <Sidebar />
-
-      {/* Header shifts right when sidebar is open — handled inside Header.jsx */}
       <Header />
-
-      {/*
-        Main content:
-        - pt-14  → clears the 56px fixed header
-        - pl-56 / pl-0 → clears the 224px sidebar when open
-        Both transitions match the sidebar 300ms duration.
-      */}
       <main
         className={`pt-14 min-h-dvh transition-all duration-300 ${
           sidebarOpen ? 'pl-56' : 'pl-0'
@@ -62,8 +53,6 @@ export default function App() {
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
-
-              {/* Row 1: Weather + Fuel (left col) | Utility Alerts (right 2 cols) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
                 <div className="flex flex-col gap-5">
                   <WeatherCard />
@@ -73,27 +62,15 @@ export default function App() {
                   <UtilityAlertsWidget />
                 </div>
               </div>
-
-              {/* Row 2: Heat Index full width */}
-              <div className="mb-5">
-                <HeatIndexCard />
-              </div>
-
-              {/* Row 3: Traffic Map full width */}
-              <div className="mb-5">
-                <TrafficMap />
-              </div>
-
-              {/* Row 4: Traffic status | Emergency */}
+              <div className="mb-5"><HeatIndexCard /></div>
+              <div className="mb-5"><TrafficMap /></div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard />
                 <EmergencyDirectory />
               </div>
-
-              {/* Row 5: CSWDO full width */}
-              <div className="mb-5">
-                <CswdoServices />
-              </div>
+              <div className="mb-5"><CswdoServices /></div>
+              {/* Community Kitchen summary on dashboard */}
+              <div className="mb-5"><KitchenFeedingCard /></div>
             </>
           )}
 
@@ -105,9 +82,7 @@ export default function App() {
                 <HeatIndexCard />
                 <HeatIndexNewsCard />
               </div>
-              <div className="max-w-sm">
-                <WeatherCard />
-              </div>
+              <div className="max-w-sm"><WeatherCard /></div>
             </>
           )}
 
@@ -119,9 +94,7 @@ export default function App() {
                 <RainGaugeCard />
                 <TideCard />
               </div>
-              <div className="mb-5">
-                <TrafficMap />
-              </div>
+              <div className="mb-5"><TrafficMap /></div>
             </>
           )}
 
@@ -133,9 +106,7 @@ export default function App() {
                 <IncidentReportForm />
                 <IncidentList />
               </div>
-              <div className="mb-5">
-                <TrafficMap />
-              </div>
+              <div className="mb-5"><TrafficMap /></div>
             </>
           )}
 
@@ -143,9 +114,7 @@ export default function App() {
           {activeSection === 'traffic' && (
             <>
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
-              <div className="mb-5">
-                <TrafficMap />
-              </div>
+              <div className="mb-5"><TrafficMap /></div>
               <TrafficCard />
             </>
           )}
@@ -170,9 +139,7 @@ export default function App() {
           {activeSection === 'utilities' && (
             <>
               <SectionTitle>⚡ Utility Advisories</SectionTitle>
-              <div className="max-w-xl">
-                <UtilityAlertsWidget />
-              </div>
+              <div className="max-w-xl"><UtilityAlertsWidget /></div>
             </>
           )}
 
@@ -180,7 +147,16 @@ export default function App() {
           {activeSection === 'cswdo' && (
             <>
               <SectionTitle>🏛️ CSWDO Services</SectionTitle>
-              <CswdoServices />
+              <div className="mb-5"><CswdoServices /></div>
+              <KitchenFeedingCard />
+            </>
+          )}
+
+          {/* ── COMMUNITY KITCHEN ─────────────────────────────── */}
+          {activeSection === 'community-kitchen' && (
+            <>
+              <SectionTitle>🍲 Community Kitchen Feeding Program</SectionTitle>
+              <KitchenFeedingCard />
             </>
           )}
 
@@ -188,9 +164,7 @@ export default function App() {
           {activeSection === 'emergency' && (
             <>
               <SectionTitle>📞 Emergency Directory</SectionTitle>
-              <div className="max-w-xl">
-                <EmergencyDirectory />
-              </div>
+              <div className="max-w-xl"><EmergencyDirectory /></div>
             </>
           )}
 
