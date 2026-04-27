@@ -9,7 +9,6 @@ import UtilityAlertsWidget from './components/UtilityAlertsWidget'
 import TrafficCard from './components/TrafficCard'
 import TrafficMap from './components/TrafficMap'
 import EmergencyDirectory from './components/EmergencyDirectory'
-import CswdoServices from './components/CswdoServices'
 import FuelWatchCard from './components/FuelWatchCard'
 import HeatIndexCard from './components/HeatIndexCard'
 import HeatIndexNewsCard from './components/HeatIndexNewsCard'
@@ -32,7 +31,6 @@ function usePwaDeepLink() {
   }, [setActiveSection])
 }
 
-// Register service worker for Web Push + offline
 function useServiceWorker() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -69,7 +67,6 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard /><EmergencyDirectory />
               </div>
-              <div className="mb-5"><CswdoServices /></div>
               <div className="mb-5"><KitchenFeedingCard /></div>
             </>
           )}
@@ -113,14 +110,6 @@ export default function App() {
             </>
           )}
 
-          {activeSection === 'cswdo' && (
-            <>
-              <SectionTitle>🧑‍🤝‍🧑 CSWDO Services</SectionTitle>
-              <div className="mb-5"><CswdoServices /></div>
-              <KitchenFeedingCard />
-            </>
-          )}
-
           {activeSection === 'community-kitchen' && (
             <>
               <SectionTitle>🍲 Community Kitchen Feeding Program</SectionTitle>
@@ -135,7 +124,7 @@ export default function App() {
             </>
           )}
 
-          {/* ── ADMIN — Protected ─────────────────────────── */}
+          {/* ── ADMIN ─────────────────────────────────────── */}
           {activeSection === 'admin' && (
             <>
               {loading && (

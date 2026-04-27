@@ -1,17 +1,16 @@
 import useStore from '../store/useStore'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',        label: 'Dashboard',          icon: '🏠', group: 'main' },
-  { id: 'weather',          label: 'Weather & Tide',      icon: '🌤️', group: 'main' },
-  { id: 'incidents',        label: 'Incident Reports',    icon: '📌', group: 'main' },
-  { id: 'traffic',          label: 'Traffic & Transport', icon: '🚦', group: 'main' },
-  { id: 'utilities',        label: 'Utility Alerts',      icon: '⚡',  group: 'main' },
-  { id: 'cswdo',            label: 'CSWDO Services',      icon: '🧑‍🤝‍🧑', group: 'main' },
-  { id: 'community-kitchen',label: 'Community Kitchen',   icon: '🍲', group: 'main' },
-  { id: 'emergency',        label: 'Emergency Directory', icon: '📞', group: 'main' },
+  { id: 'dashboard',         label: 'Dashboard',          icon: '🏠', group: 'main' },
+  { id: 'weather',           label: 'Weather & Tide',      icon: '🌤️', group: 'main' },
+  { id: 'incidents',         label: 'Incident Reports',    icon: '📌', group: 'main' },
+  { id: 'traffic',           label: 'Traffic & Transport', icon: '🚦', group: 'main' },
+  { id: 'utilities',         label: 'Utility Alerts',      icon: '⚡',  group: 'main' },
+  { id: 'community-kitchen', label: 'Community Kitchen',   icon: '🍲', group: 'main' },
+  { id: 'emergency',         label: 'Emergency Directory', icon: '📞', group: 'main' },
   // Admin group
-  { id: 'admin',            label: 'Admin Panel',         icon: '⚙️',  group: 'admin' },
-  { id: 'cmc',              label: 'CMC Meetings',        icon: '🏛️', group: 'admin' },
+  { id: 'admin',             label: 'Admin Panel',         icon: '⚙️',  group: 'admin' },
+  { id: 'cmc',               label: 'CMC Meetings',        icon: '🏛️', group: 'admin' },
 ]
 
 export default function Sidebar() {
@@ -40,7 +39,6 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
-        {/* Main items */}
         {mainItems.map((item) => (
           <button
             key={item.id}
@@ -61,7 +59,6 @@ export default function Sidebar() {
           <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Admin</div>
         </div>
 
-        {/* Admin items */}
         {adminItems.map((item) => (
           <button
             key={item.id}
