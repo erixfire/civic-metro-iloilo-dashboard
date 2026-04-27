@@ -11,6 +11,7 @@ import EmergencyDirectory from './components/EmergencyDirectory'
 import CswdoServices from './components/CswdoServices'
 import FuelWatchCard from './components/FuelWatchCard'
 import HeatIndexCard from './components/HeatIndexCard'
+import HeatIndexNewsCard from './components/HeatIndexNewsCard'
 
 export default function App() {
   const { darkMode, sidebarOpen, activeSection } = useStore()
@@ -26,6 +27,7 @@ export default function App() {
       <main className={`pt-14 transition-all duration-300 ${sidebarOpen ? 'pl-56' : 'pl-0'}`}>
         <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
 
+          {/* DASHBOARD */}
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
@@ -54,6 +56,21 @@ export default function App() {
             </>
           )}
 
+          {/* HEAT INDEX */}
+          {activeSection === 'heat-index' && (
+            <>
+              <SectionTitle>🌡️ Heat Index & Advisories — Iloilo City</SectionTitle>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+                <HeatIndexCard />
+                <HeatIndexNewsCard />
+              </div>
+              <div className="max-w-md">
+                <WeatherCard />
+              </div>
+            </>
+          )}
+
+          {/* TRAFFIC */}
           {activeSection === 'traffic' && (
             <>
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
@@ -62,9 +79,10 @@ export default function App() {
             </>
           )}
 
+          {/* WEATHER */}
           {activeSection === 'weather' && (
             <>
-              <SectionTitle>🌤️ Weather & Heat Index</SectionTitle>
+              <SectionTitle>🌤️ Weather & Tide</SectionTitle>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <WeatherCard />
                 <HeatIndexCard />
@@ -75,6 +93,7 @@ export default function App() {
             </>
           )}
 
+          {/* UTILITIES */}
           {activeSection === 'utilities' && (
             <>
               <SectionTitle>⚡ Utility Advisories</SectionTitle>
@@ -82,6 +101,7 @@ export default function App() {
             </>
           )}
 
+          {/* CSWDO */}
           {activeSection === 'cswdo' && (
             <>
               <SectionTitle>🏛️ CSWDO Services</SectionTitle>
@@ -89,6 +109,7 @@ export default function App() {
             </>
           )}
 
+          {/* EMERGENCY */}
           {activeSection === 'emergency' && (
             <>
               <SectionTitle>📞 Emergency Directory</SectionTitle>
