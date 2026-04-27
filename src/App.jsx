@@ -39,17 +39,33 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
+      {/* Sidebar sits above header (z-50) */}
       <Sidebar />
+
+      {/* Header shifts right when sidebar is open — handled inside Header.jsx */}
       <Header />
-      <main className={`pt-14 transition-all duration-300 ${sidebarOpen ? 'pl-56' : 'pl-0'}`}>
+
+      {/*
+        Main content:
+        - pt-14  → clears the 56px fixed header
+        - pl-56 / pl-0 → clears the 224px sidebar when open
+        Both transitions match the sidebar 300ms duration.
+      */}
+      <main
+        className={`pt-14 min-h-dvh transition-all duration-300 ${
+          sidebarOpen ? 'pl-56' : 'pl-0'
+        }`}
+      >
         <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
 
-          {/* DASHBOARD */}
+          {/* ── DASHBOARD ─────────────────────────────────────── */}
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
+
+              {/* Row 1: Weather + Fuel (left col) | Utility Alerts (right 2 cols) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <div className="space-y-5">
+                <div className="flex flex-col gap-5">
                   <WeatherCard />
                   <FuelWatchCard />
                 </div>
@@ -57,17 +73,31 @@ export default function App() {
                   <UtilityAlertsWidget />
                 </div>
               </div>
-              <div className="mb-5"><HeatIndexCard /></div>
-              <div className="mb-5"><TrafficMap /></div>
+
+              {/* Row 2: Heat Index full width */}
+              <div className="mb-5">
+                <HeatIndexCard />
+              </div>
+
+              {/* Row 3: Traffic Map full width */}
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
+
+              {/* Row 4: Traffic status | Emergency */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                 <TrafficCard />
                 <EmergencyDirectory />
               </div>
-              <div className="mb-5"><CswdoServices /></div>
+
+              {/* Row 5: CSWDO full width */}
+              <div className="mb-5">
+                <CswdoServices />
+              </div>
             </>
           )}
 
-          {/* HEAT INDEX */}
+          {/* ── HEAT INDEX ────────────────────────────────────── */}
           {activeSection === 'heat-index' && (
             <>
               <SectionTitle>🌡️ Heat Index & Advisories — Iloilo City</SectionTitle>
@@ -75,11 +105,13 @@ export default function App() {
                 <HeatIndexCard />
                 <HeatIndexNewsCard />
               </div>
-              <div className="max-w-md"><WeatherCard /></div>
+              <div className="max-w-sm">
+                <WeatherCard />
+              </div>
             </>
           )}
 
-          {/* FLOOD / RAIN MONITOR */}
+          {/* ── FLOOD / RAIN MONITOR ──────────────────────────── */}
           {activeSection === 'flood-monitor' && (
             <>
               <SectionTitle>💧 Flood & Rain Gauge Monitor</SectionTitle>
@@ -87,11 +119,13 @@ export default function App() {
                 <RainGaugeCard />
                 <TideCard />
               </div>
-              <div className="mb-5"><TrafficMap /></div>
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
             </>
           )}
 
-          {/* INCIDENT REPORTS */}
+          {/* ── INCIDENT REPORTS ──────────────────────────────── */}
           {activeSection === 'incidents' && (
             <>
               <SectionTitle>📌 CDRRMO Incident Reports</SectionTitle>
@@ -99,20 +133,24 @@ export default function App() {
                 <IncidentReportForm />
                 <IncidentList />
               </div>
-              <div className="mb-5"><TrafficMap /></div>
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
             </>
           )}
 
-          {/* TRAFFIC */}
+          {/* ── TRAFFIC ───────────────────────────────────────── */}
           {activeSection === 'traffic' && (
             <>
               <SectionTitle>🚦 Traffic & Transport</SectionTitle>
-              <div className="mb-5"><TrafficMap /></div>
+              <div className="mb-5">
+                <TrafficMap />
+              </div>
               <TrafficCard />
             </>
           )}
 
-          {/* WEATHER */}
+          {/* ── WEATHER & TIDE ────────────────────────────────── */}
           {activeSection === 'weather' && (
             <>
               <SectionTitle>🌤️ Weather & Tide</SectionTitle>
@@ -128,15 +166,17 @@ export default function App() {
             </>
           )}
 
-          {/* UTILITIES */}
+          {/* ── UTILITIES ─────────────────────────────────────── */}
           {activeSection === 'utilities' && (
             <>
               <SectionTitle>⚡ Utility Advisories</SectionTitle>
-              <div className="max-w-xl"><UtilityAlertsWidget /></div>
+              <div className="max-w-xl">
+                <UtilityAlertsWidget />
+              </div>
             </>
           )}
 
-          {/* CSWDO */}
+          {/* ── CSWDO ─────────────────────────────────────────── */}
           {activeSection === 'cswdo' && (
             <>
               <SectionTitle>🏛️ CSWDO Services</SectionTitle>
@@ -144,11 +184,13 @@ export default function App() {
             </>
           )}
 
-          {/* EMERGENCY */}
+          {/* ── EMERGENCY ─────────────────────────────────────── */}
           {activeSection === 'emergency' && (
             <>
               <SectionTitle>📞 Emergency Directory</SectionTitle>
-              <div className="max-w-xl"><EmergencyDirectory /></div>
+              <div className="max-w-xl">
+                <EmergencyDirectory />
+              </div>
             </>
           )}
 
@@ -159,5 +201,9 @@ export default function App() {
 }
 
 function SectionTitle({ children }) {
-  return <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
+  return (
+    <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">
+      {children}
+    </h1>
+  )
 }
