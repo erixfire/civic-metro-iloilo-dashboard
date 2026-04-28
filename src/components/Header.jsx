@@ -41,11 +41,11 @@ export default function Header({ user, onLogout }) {
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: short title */}
         <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">
-          Metro Iloilo
+          iloilocity.app
         </span>
         {/* Desktop: full title */}
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
-          Civic Metro Iloilo Dashboard
+          iloilocity.app — Iloilo City Dashboard
         </span>
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
