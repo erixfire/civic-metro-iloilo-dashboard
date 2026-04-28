@@ -13,12 +13,18 @@ export default function HeatIndexNewsCard() {
   const { data: newsData, loading: newsLoading, error: newsError } = useHeatIndexNews()
   const { data: cdrrmoData, loading: cdrrmoLoading }               = useCdrrmoAdvisories()
 
-  // Merge news + CDRRMO advisories, dedupe, cap at 8
+  // Merge news + CDRRMO advisories, dedupe, sort by date descending, cap at 8
   const rawItems = [
     ...(newsData?.items ?? HEAT_INDEX_NEWS),
     ...(cdrrmoData?.items ?? []),
   ]
-  const items = dedupeAdvisories(rawItems).slice(0, 8)
+  const items = dedupeAdvisories(rawItems)
+    .sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0
+      const db = b.date ? new Date(b.date).getTime() : 0
+      return db - da
+    })
+    .slice(0, 8)
 
   const isLoading  = newsLoading || cdrrmoLoading
   const isFallback = newsData?.isFallback
