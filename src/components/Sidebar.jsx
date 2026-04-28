@@ -1,49 +1,63 @@
 import useStore from '../store/useStore'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',         en: 'Home',               hil: 'Balay',            icon: '🏠', group: 'main' },
-  { id: 'weather',           en: 'Weather & Tide',      hil: 'Panahon & Tubig',  icon: '🌤️', group: 'main' },
-  { id: 'incidents',         en: 'Incidents',           hil: 'Mga Insidente',    icon: '📌', group: 'main' },
-  { id: 'traffic',           en: 'Traffic',             hil: 'Trapiko',          icon: '🚦', group: 'main' },
-  { id: 'utilities',         en: 'Utility Alerts',      hil: 'Alerto sa Kuryente/Tubig', icon: '⚡', group: 'main' },
-  { id: 'community-kitchen', en: 'Free Feeding',        hil: 'Libre nga Pagkaon', icon: '🍲', group: 'main' },
-  { id: 'emergency',         en: 'Emergency Hotlines',  hil: 'Emergency Hotlines', icon: '🆘', group: 'main' },
-  // Admin
-  { id: 'admin',             en: 'Admin Panel',         hil: '',                 icon: '⚙️',  group: 'admin' },
-  { id: 'cmc',               en: 'CMC Meetings',        hil: '',                 icon: '🏛️', group: 'admin' },
+  { id: 'dashboard',         en: 'Home',               hil: 'Balay',                   icon: '🏠', group: 'main' },
+  { id: 'weather',           en: 'Weather & Tide',      hil: 'Panahon & Tubig',          icon: '🌤️', group: 'main' },
+  { id: 'incidents',         en: 'Incidents',           hil: 'Mga Insidente',            icon: '📌', group: 'main' },
+  { id: 'traffic',           en: 'Traffic',             hil: 'Trapiko',                  icon: '🚦', group: 'main' },
+  { id: 'utilities',         en: 'Utility Alerts',      hil: 'Alerto sa Kuryente/Tubig', icon: '⚡',  group: 'main' },
+  { id: 'community-kitchen', en: 'Free Feeding',        hil: 'Libre nga Pagkaon',        icon: '🍲', group: 'main' },
+  { id: 'emergency',         en: 'Emergency Hotlines',  hil: 'Emergency Hotlines',       icon: '🆘', group: 'main' },
+  { id: 'admin',             en: 'Admin Panel',         hil: '',                         icon: '⚙️',  group: 'admin' },
+  { id: 'cmc',               en: 'CMC Meetings',        hil: '',                         icon: '🏛️', group: 'admin' },
 ]
 
 const BOTTOM_NAV = [
-  { id: 'dashboard',  en: 'Home',      hil: 'Balay',    icon: '🏠' },
+  { id: 'dashboard',  en: 'Home',      hil: 'Balay',     icon: '🏠' },
   { id: 'incidents',  en: 'Incidents', hil: 'Insidente', icon: '📌' },
-  { id: 'weather',    en: 'Weather',   hil: 'Panahon',  icon: '🌤️' },
-  { id: 'emergency',  en: 'Help',      hil: 'Bulig',    icon: '🆘' },
+  { id: 'weather',    en: 'Weather',   hil: 'Panahon',   icon: '🌤️' },
+  { id: 'emergency',  en: 'Help',      hil: 'Bulig',     icon: '🆘' },
 ]
 
 export default function Sidebar() {
-  const { sidebarOpen, activeSection, setActiveSection } = useStore()
+  const { sidebarOpen, setSidebarOpen, activeSection, setActiveSection } = useStore()
 
   const mainItems  = NAV_ITEMS.filter(n => n.group === 'main')
   const adminItems = NAV_ITEMS.filter(n => n.group === 'admin')
 
+  // Navigate and auto-close sidebar on mobile
+  function navigate(id) {
+    setActiveSection(id)
+    // Close sidebar on mobile (< md breakpoint = 768px)
+    if (window.innerWidth < 768) setSidebarOpen(false)
+  }
+
   return (
     <>
-      {/* ── Desktop sidebar ─────────────────────────────── */}
+      {/* Desktop / mobile slide-over sidebar */}
       <aside
         className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-all duration-300 flex flex-col ${
           sidebarOpen ? 'w-60' : 'w-0 overflow-hidden'
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 pt-4 pb-4 border-b border-black/10 dark:border-white/10 shrink-0">
-          <svg width="28" height="28" viewBox="0 0 32 32" aria-label="Civic Metro Iloilo Logo">
+        {/* Logo + close button */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-black/10 dark:border-white/10 shrink-0">
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-label="Civic Metro Iloilo">
             <rect width="32" height="32" rx="7" fill="#01696f" />
             <text x="16" y="22" fontFamily="Inter,sans-serif" fontSize="14" fontWeight="700" fill="white" textAnchor="middle">IC</text>
           </svg>
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-tight truncate">Metro Iloilo</div>
-            <div className="text-xs text-zinc-400">Civic Dashboard</div>
+            <div className="text-[10px] text-zinc-400">Civic Dashboard</div>
           </div>
+          {/* Close button visible on mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Nav links */}
@@ -51,7 +65,7 @@ export default function Sidebar() {
           {mainItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => navigate(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
                 activeSection === item.id
                   ? 'bg-[#01696f] text-white'
@@ -73,7 +87,7 @@ export default function Sidebar() {
           {adminItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => navigate(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
                 activeSection === item.id
                   ? 'bg-zinc-800 text-white dark:bg-zinc-700'
@@ -87,17 +101,25 @@ export default function Sidebar() {
         </nav>
 
         <div className="px-5 py-3 border-t border-black/10 dark:border-white/10 text-xs text-zinc-400 shrink-0">
-          Iloilo City Gov't © 2026
+          Iloilo City Gov’t © 2026
         </div>
       </aside>
 
-      {/* ── Mobile bottom nav ───────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10 safe-area-inset-bottom">
+      {/* Mobile backdrop — tap to close */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10">
         <div className="flex items-stretch">
           {BOTTOM_NAV.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => navigate(item.id)}
               className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
                 activeSection === item.id
                   ? 'text-[#01696f] dark:text-teal-400'

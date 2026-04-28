@@ -7,14 +7,15 @@ const useStore = create(
       darkMode: false,
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
 
-      sidebarOpen: true,
-      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      sidebarOpen: false, // default closed on mobile
+      toggleSidebar:  () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
       activeSection: 'dashboard',
       setActiveSection: (section) => set({ activeSection: section }),
     }),
     {
-      name: 'civic-iloilo-ui', // localStorage key
+      name: 'civic-iloilo-ui',
       partialize: (s) => ({ darkMode: s.darkMode, sidebarOpen: s.sidebarOpen }),
     },
   ),
