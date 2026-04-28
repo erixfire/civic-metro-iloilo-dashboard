@@ -18,10 +18,11 @@ import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
 import NewsPage from './components/NewsPage'
+import NewsTickerBanner from './components/NewsTickerBanner'
 import AdminPanel from './components/AdminPanel'
 import AdminLoginPage from './components/AdminLoginPage'
-// KitchenFeedingCard — admin-only, not imported here
-// CmcBoard — admin-only, not imported here
+// KitchenFeedingCard — admin-only
+// CmcBoard — admin-only
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
@@ -55,6 +56,9 @@ export default function App() {
     if (adminOnly.includes(activeSection) && !user) setActiveSection('admin')
   }, [activeSection, user, setActiveSection])
 
+  // NewsTickerBanner is only shown on public sections (not admin)
+  const isPublicSection = !['admin', 'cmc', 'community-kitchen'].includes(activeSection)
+
   return (
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
       <Sidebar />
@@ -67,6 +71,9 @@ export default function App() {
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
         <div className="px-3 py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
+
+          {/* Global urgent news ticker — shown on all public sections */}
+          {isPublicSection && <NewsTickerBanner />}
 
           {activeSection === 'dashboard' && (
             <>
