@@ -18,16 +18,17 @@ import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
 import KitchenFeedingCard from './components/KitchenFeedingCard'
-import CmcBoard from './components/CmcBoard'
 import AdminPanel from './components/AdminPanel'
 import AdminLoginPage from './components/AdminLoginPage'
+// CmcBoard is intentionally NOT imported here — CMC is admin-only, rendered inside AdminPanel
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
   useEffect(() => {
     const params  = new URLSearchParams(window.location.search)
     const section = params.get('section')
-    if (section) { setActiveSection(section); window.history.replaceState({}, '', '/') }
+    // Block deep-linking directly to cmc from URL
+    if (section && section !== 'cmc') { setActiveSection(section); window.history.replaceState({}, '', '/') }
   }, [setActiveSection])
 }
 
@@ -49,11 +50,17 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
+  // Guard: if someone navigates to 'cmc' without being logged in, redirect to admin
+  useEffect(() => {
+    if (activeSection === 'cmc' && !user) {
+      setActiveSection('admin')
+    }
+  }, [activeSection, user, setActiveSection])
+
   return (
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
       <Sidebar />
 
-      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 md:hidden"
@@ -63,7 +70,6 @@ export default function App() {
 
       <Header user={user} onLogout={logout} />
 
-      {/* pt-14 = header, pb-20 on mobile = clears bottom nav, md:pb-6 on desktop */}
       <main className={`pt-14 pb-20 md:pb-6 min-h-dvh transition-all duration-300 ${
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
@@ -72,7 +78,6 @@ export default function App() {
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
-              {/* Stack fully on mobile, 3-col on lg */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                 <div className="flex flex-col gap-4">
                   <WeatherCard />
@@ -156,10 +161,15 @@ export default function App() {
             </>
           )}
 
+          {/* CMC route: only accessible when logged in, redirects to admin login otherwise */}
           {activeSection === 'cmc' && (
             <>
-              <SectionTitle icon="🏛️" en="CMC Meeting Board" hil="Crisis Management Council" />
-              <CmcBoard />
+              {!loading && !user && (
+                <AdminLoginPage onLogin={login} loginError={loginError} loginBusy={loginBusy} />
+              )}
+              {!loading && user && (
+                <AdminPanel onNavigate={setActiveSection} user={user} defaultTab="cmc-manage" />
+              )}
             </>
           )}
 

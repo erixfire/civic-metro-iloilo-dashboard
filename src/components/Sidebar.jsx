@@ -1,5 +1,6 @@
 import useStore from '../store/useStore'
 
+// CMC is intentionally excluded — it only appears inside the Admin Panel
 const NAV_ITEMS = [
   { id: 'dashboard',         en: 'Home',               hil: 'Balay',                   icon: '🏠', group: 'main' },
   { id: 'weather',           en: 'Weather & Tide',      hil: 'Panahon & Tubig',          icon: '🌤️', group: 'main' },
@@ -9,7 +10,6 @@ const NAV_ITEMS = [
   { id: 'community-kitchen', en: 'Free Feeding',        hil: 'Libre nga Pagkaon',        icon: '🍲', group: 'main' },
   { id: 'emergency',         en: 'Emergency Hotlines',  hil: 'Emergency Hotlines',       icon: '🆘', group: 'main' },
   { id: 'admin',             en: 'Admin Panel',         hil: '',                         icon: '⚙️',  group: 'admin' },
-  { id: 'cmc',               en: 'CMC Meetings',        hil: '',                         icon: '🏛️', group: 'admin' },
 ]
 
 const BOTTOM_NAV = [
@@ -25,16 +25,13 @@ export default function Sidebar() {
   const mainItems  = NAV_ITEMS.filter(n => n.group === 'main')
   const adminItems = NAV_ITEMS.filter(n => n.group === 'admin')
 
-  // Navigate and auto-close sidebar on mobile
   function navigate(id) {
     setActiveSection(id)
-    // Close sidebar on all screen sizes when a nav item is tapped
     setSidebarOpen(false)
   }
 
   return (
     <>
-      {/* Mobile backdrop — tap anywhere outside sidebar to close */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
@@ -42,13 +39,11 @@ export default function Sidebar() {
         />
       )}
 
-      {/* Desktop / mobile slide-over sidebar */}
       <aside
         className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-transform duration-300 flex flex-col ${
           sidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full w-60 md:translate-x-0 md:w-0 md:overflow-hidden'
         }`}
       >
-        {/* Logo + close button */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-black/10 dark:border-white/10 shrink-0">
           <svg width="28" height="28" viewBox="0 0 32 32" aria-label="iloilocity.app">
             <rect width="32" height="32" rx="7" fill="#01696f" />
@@ -58,7 +53,6 @@ export default function Sidebar() {
             <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-tight truncate">iloilocity.app</div>
             <div className="text-[10px] text-zinc-400">Iloilo City Dashboard</div>
           </div>
-          {/* Close button visible on mobile */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
@@ -68,7 +62,6 @@ export default function Sidebar() {
           </button>
         </div>
 
-        {/* Nav links */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
           {mainItems.map((item) => (
             <button
@@ -113,7 +106,6 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10">
         <div className="flex items-stretch">
           {BOTTOM_NAV.map((item) => (
