@@ -40,8 +40,8 @@ function useServiceWorker() {
 }
 
 export default function App() {
-  const { darkMode, sidebarOpen, activeSection, setActiveSection } = useStore()
-  const { user, loading, login, logout, loginError, loginBusy }   = useAuth()
+  const { darkMode, sidebarOpen, setSidebarOpen, activeSection, setActiveSection } = useStore()
+  const { user, loading, login, logout, loginError, loginBusy } = useAuth()
   usePwaDeepLink()
   useServiceWorker()
 
@@ -52,44 +52,60 @@ export default function App() {
   return (
     <div className="min-h-dvh bg-zinc-100 dark:bg-zinc-950 transition-colors">
       <Sidebar />
+
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Header user={user} onLogout={logout} />
-      <main className={`pt-14 min-h-dvh transition-all duration-300 ${ sidebarOpen ? 'pl-56' : 'pl-0' }`}>
-        <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
+
+      {/* pt-14 = header, pb-20 on mobile = clears bottom nav, md:pb-6 on desktop */}
+      <main className={`pt-14 pb-20 md:pb-6 min-h-dvh transition-all duration-300 ${
+        sidebarOpen ? 'md:pl-60' : 'pl-0'
+      }`}>
+        <div className="px-3 py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
 
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                <div className="flex flex-col gap-5"><WeatherCard /><FuelWatchCard /></div>
+              {/* Stack fully on mobile, 3-col on lg */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                <div className="flex flex-col gap-4">
+                  <WeatherCard />
+                  <FuelWatchCard />
+                </div>
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
-              <div className="mb-5"><TrafficMap /></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+              <div className="mb-4"><TrafficMap /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                 <TrafficCard /><EmergencyDirectory />
               </div>
-              <div className="mb-5"><KitchenFeedingCard /></div>
+              <div className="mb-4"><KitchenFeedingCard /></div>
             </>
           )}
 
           {activeSection === 'weather' && (
             <>
-              <SectionTitle>🌤️ Weather, Tide, Heat Index & Flood Monitor</SectionTitle>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+              <SectionTitle icon="🌤️" en="Weather, Tide & Heat" hil="Panahon, Tubig, kag Kainit" />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                 <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
-              <div className="mb-5"><HeatIndexNewsCard /></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+              <div className="mb-4"><HeatIndexNewsCard /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                 <RainGaugeCard /><FuelWatchCard />
               </div>
-              <div className="mb-5"><TrafficMap /></div>
             </>
           )}
 
           {activeSection === 'incidents' && (
             <>
-              <SectionTitle>📌 CDRRMO Incident Reports</SectionTitle>
-              <div className="mb-5"><IncidentMap /></div>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+              <SectionTitle icon="📌" en="Incident Reports" hil="Mga Insidente" />
+              <div className="mb-4"><IncidentMap /></div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
                 <IncidentReportForm /><IncidentList />
               </div>
             </>
@@ -97,34 +113,33 @@ export default function App() {
 
           {activeSection === 'traffic' && (
             <>
-              <SectionTitle>🚦 Traffic & Transport</SectionTitle>
-              <div className="mb-5"><TrafficMap /></div>
+              <SectionTitle icon="🚦" en="Traffic & Transport" hil="Trapiko" />
+              <div className="mb-4"><TrafficMap /></div>
               <TrafficCard />
             </>
           )}
 
           {activeSection === 'utilities' && (
             <>
-              <SectionTitle>⚡ Utility Advisories</SectionTitle>
+              <SectionTitle icon="⚡" en="Utility Advisories" hil="Alerto sa Kuryente / Tubig" />
               <div className="max-w-xl"><UtilityAlertsWidget /></div>
             </>
           )}
 
           {activeSection === 'community-kitchen' && (
             <>
-              <SectionTitle>🍲 Community Kitchen Feeding Program</SectionTitle>
+              <SectionTitle icon="🍲" en="Free Feeding Program" hil="Libre nga Pagkaon" />
               <KitchenFeedingCard />
             </>
           )}
 
           {activeSection === 'emergency' && (
             <>
-              <SectionTitle>📞 Emergency Directory</SectionTitle>
+              <SectionTitle icon="🆘" en="Emergency Hotlines" hil="I-tap para tawgon" />
               <div className="max-w-xl"><EmergencyDirectory /></div>
             </>
           )}
 
-          {/* ── ADMIN ─────────────────────────────────────── */}
           {activeSection === 'admin' && (
             <>
               {loading && (
@@ -143,7 +158,7 @@ export default function App() {
 
           {activeSection === 'cmc' && (
             <>
-              <SectionTitle>🏛️ Crisis Management Council — Meeting Board</SectionTitle>
+              <SectionTitle icon="🏛️" en="CMC Meeting Board" hil="Crisis Management Council" />
               <CmcBoard />
             </>
           )}
@@ -154,6 +169,11 @@ export default function App() {
   )
 }
 
-function SectionTitle({ children }) {
-  return <h1 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-5">{children}</h1>
+function SectionTitle({ icon, en, hil }) {
+  return (
+    <div className="mb-4">
+      <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">{icon} {en}</h1>
+      {hil && <p className="text-xs text-zinc-400 mt-0.5">{hil}</p>}
+    </div>
+  )
 }

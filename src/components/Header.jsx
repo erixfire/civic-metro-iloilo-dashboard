@@ -11,7 +11,7 @@ export default function Header({ user, onLogout }) {
   }, [])
 
   const timeStr = time.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = time.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  const dateStr = time.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' })
 
   const roleColor = {
     admin:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
@@ -20,11 +20,10 @@ export default function Header({ user, onLogout }) {
   }
 
   return (
-    <header
-      className={`fixed top-0 right-0 z-30 h-14 bg-white dark:bg-zinc-900 border-b border-black/10 dark:border-white/10 flex items-center px-4 gap-3 shadow-sm transition-all duration-300 ${
-        sidebarOpen ? 'left-56' : 'left-0'
-      }`}
-    >
+    <header className={`fixed top-0 right-0 z-30 h-14 bg-white dark:bg-zinc-900 border-b border-black/10 dark:border-white/10 flex items-center px-3 gap-2 shadow-sm transition-all duration-300 left-0 ${
+      sidebarOpen ? 'md:left-60' : ''
+    }`}>
+
       {/* Sidebar toggle */}
       <button
         onClick={toggleSidebar}
@@ -38,8 +37,13 @@ export default function Header({ user, onLogout }) {
         </svg>
       </button>
 
-      {/* Title + live badge */}
+      {/* Title */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Mobile: short title */}
+        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">
+          Metro Iloilo
+        </span>
+        {/* Desktop: full title */}
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
           Civic Metro Iloilo Dashboard
         </span>
@@ -49,13 +53,18 @@ export default function Header({ user, onLogout }) {
         </span>
       </div>
 
-      {/* Clock */}
+      {/* Clock — desktop only */}
       <div className="tabular hidden md:flex flex-col items-end text-xs shrink-0">
         <span className="font-semibold text-zinc-700 dark:text-zinc-200">{timeStr}</span>
         <span className="text-zinc-400">{dateStr}</span>
       </div>
 
-      {/* Logged-in user pill */}
+      {/* Clock — mobile compact */}
+      <div className="tabular md:hidden text-xs font-semibold text-zinc-500 shrink-0">
+        {timeStr}
+      </div>
+
+      {/* Logged-in user */}
       {user && (
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <div className="flex flex-col items-end">
