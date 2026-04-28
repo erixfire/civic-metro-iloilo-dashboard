@@ -4,16 +4,16 @@ import { useHeatIndexNews } from '../hooks/useHeatIndexNews'
 const LEVEL_CONFIG = {
   'Extreme Danger':  { cls: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-400',    icon: '🚨', hil: 'Grabe nga Delikado — Indi gid lumabas!' },
   'Danger':          { cls: 'bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300',      icon: '🔴', hil: 'Delikado — Magpabilin sa sulod.' },
-  'Extreme Caution': { cls: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 border-orange-300',           icon: '🟠', hil: 'Mag-ingat gid! Mag-inom sang tubig.' },
+  'Extreme Caution': { cls: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 border-orange-300',           icon: '🟠', hil: 'Mag-halong gid! Mag-inom sang tubig.' },
   'Caution':         { cls: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 border-yellow-300',           icon: '🟡', hil: 'Mag-inot. Indi magpainit kung dili kinahanglan.' },
   'Normal':          { cls: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300', icon: '🟢', hil: 'Luwas ang kainit karon.' },
 }
 
 const PAGASA_SCALE = [
-  { range: '27–32°C', en: 'Caution',         hil: 'Mag-inot',       color: 'bg-yellow-400' },
-  { range: '33–41°C', en: 'Extreme Caution', hil: 'Mag-ingat Gid',  color: 'bg-orange-400' },
-  { range: '42–51°C', en: 'Danger',          hil: 'Delikado',       color: 'bg-red-500'   },
-  { range: '52°C+',   en: 'Extreme Danger',  hil: 'Grabe Delikado', color: 'bg-red-800'   },
+  { range: '27–32°C', en: 'Caution',         hil: 'Mag-inot',        color: 'bg-yellow-400' },
+  { range: '33–41°C', en: 'Extreme Caution', hil: 'Mag-halong Gid',  color: 'bg-orange-400' },
+  { range: '42–51°C', en: 'Danger',          hil: 'Delikado',        color: 'bg-red-500'   },
+  { range: '52°C+',   en: 'Extreme Danger',  hil: 'Grabe Delikado',  color: 'bg-red-800'   },
 ]
 
 export default function HeatIndexCard() {
