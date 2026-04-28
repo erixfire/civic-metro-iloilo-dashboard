@@ -15,6 +15,7 @@ import AdminIncidents          from './AdminIncidents'
 import AdminUserManagement     from './AdminUserManagement'
 import AdminNotifications      from './AdminNotifications'
 import AdminFuelSync           from './AdminFuelSync'
+import AdminScraperPanel       from './AdminScraperPanel'
 
 const ALL_TABS = [
   { id: 'overview',      label: '📊 Overview',       minRole: 'viewer'   },
@@ -22,6 +23,7 @@ const ALL_TABS = [
   { id: 'utility',       label: '⚡ Utility Alerts',  minRole: 'operator' },
   { id: 'kitchen',       label: '🍲 Kitchen Sites',   minRole: 'operator' },
   { id: 'fuel',          label: '⛽ Fuel Prices',      minRole: 'operator' },
+  { id: 'scraper',       label: '📡 News Scraper',    minRole: 'operator' },
   { id: 'cmc-manage',   label: '🏛️ CMC Manage',      minRole: 'operator' },
   { id: 'cmc-create',   label: '➕ CMC Create',       minRole: 'operator' },
   { id: 'notifications', label: '🔔 Push Alerts',     minRole: 'operator' },
@@ -69,10 +71,10 @@ function QuickLink({ icon, label, desc, onClick }) {
   )
 }
 
-export default function AdminPanel({ onNavigate, user }) {
+export default function AdminPanel({ onNavigate, user, getToken, defaultTab }) {
   const role = user?.role ?? 'viewer'
   const visibleTabs = ALL_TABS.filter((t) => canSee(t.minRole, role))
-  const [tab, setTab] = useState(visibleTabs[0]?.id ?? 'overview')
+  const [tab, setTab] = useState(defaultTab ?? visibleTabs[0]?.id ?? 'overview')
 
   const { getTotals, getToday, lastFetched, fetchData } = useKitchenStore()
   const { incidents, fetchIncidents }                   = useIncidentStore()
@@ -88,7 +90,7 @@ export default function AdminPanel({ onNavigate, user }) {
   }
 
   function authHeader() {
-    const t = localStorage.getItem('civic_admin_token')
+    const t = getToken?.()
     return t ? { Authorization: `Bearer ${t}` } : {}
   }
 
@@ -151,6 +153,7 @@ export default function AdminPanel({ onNavigate, user }) {
                 <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
                 <QuickLink icon="🏛️" label="CMC Meeting Board"   desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
                 <QuickLink icon="⛽" label="Fuel Prices"         desc="DOE sync or manual LPCC entry"     onClick={() => setTab('fuel')} />
+                <QuickLink icon="📡" label="News Scraper"        desc="Fetch live updates from all sources" onClick={() => setTab('scraper')} />
                 <QuickLink icon="🔔" label="Push Notifications"  desc="Send alerts to all subscribers"   onClick={() => setTab('notifications')} />
                 <QuickLink icon="⚡" label="Utility Alerts"      desc="Manage power/water notices"       onClick={() => setTab('utility')} />
                 {role === 'admin' && <QuickLink icon="👥" label="User Management" desc="Add/deactivate operator accounts" onClick={() => setTab('users')} />}
@@ -185,6 +188,7 @@ export default function AdminPanel({ onNavigate, user }) {
       {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>}
       {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>}
       {tab === 'fuel'          && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync /></AdminSection>}
+      {tab === 'scraper'       && <AdminSection title="📡 News Scraper"><AdminScraperPanel getToken={getToken} /></AdminSection>}
       {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage /></AdminSection>}
       {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
       {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications /></AdminSection>}
