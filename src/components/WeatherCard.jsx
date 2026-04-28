@@ -11,10 +11,10 @@ const UV_INFO = (v) => {
 }
 
 const HI_ADVICE = {
-  'Normal':          { hil: 'Luwas ang kainit.',               icon: '🟢' },
-  'Caution':         { hil: 'Mag-inot. Mag-inom sang tubig.',  icon: '🟡' },
-  'Extreme Caution': { hil: 'Mag-ingat gid! Indi magpainit.', icon: '🟠' },
-  'Danger':          { hil: 'Delikado! Magpabilin sa sulod.',  icon: '🔴' },
+  'Normal':          { hil: 'Luwas ang kainit.',                  icon: '🟢' },
+  'Caution':         { hil: 'Mag-inot. Mag-inom sang tubig.',     icon: '🟡' },
+  'Extreme Caution': { hil: 'Mag-halong gid! Indi magpainit.',   icon: '🟠' },
+  'Danger':          { hil: 'Delikado! Magpabilin sa sulod.',     icon: '🔴' },
   'Extreme Danger':  { hil: 'Grabe nga delikado! Indi lumabas.', icon: '🚨' },
 }
 
