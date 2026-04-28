@@ -17,18 +17,22 @@ import TideCard from './components/TideCard'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
-import KitchenFeedingCard from './components/KitchenFeedingCard'
 import AdminPanel from './components/AdminPanel'
 import AdminLoginPage from './components/AdminLoginPage'
-// CmcBoard is intentionally NOT imported here — CMC is admin-only, rendered inside AdminPanel
+// KitchenFeedingCard intentionally NOT imported here — community kitchen is admin-only
+// CmcBoard intentionally NOT imported here — CMC is admin-only
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
   useEffect(() => {
     const params  = new URLSearchParams(window.location.search)
     const section = params.get('section')
-    // Block deep-linking directly to cmc from URL
-    if (section && section !== 'cmc') { setActiveSection(section); window.history.replaceState({}, '', '/') }
+    // Block deep-linking to admin-only sections from URL
+    const blocked = ['cmc', 'community-kitchen']
+    if (section && !blocked.includes(section)) {
+      setActiveSection(section)
+      window.history.replaceState({}, '', '/')
+    }
   }, [setActiveSection])
 }
 
@@ -42,7 +46,7 @@ function useServiceWorker() {
 
 export default function App() {
   const { darkMode, sidebarOpen, setSidebarOpen, activeSection, setActiveSection } = useStore()
-  const { user, loading, login, logout, loginError, loginBusy } = useAuth()
+  const { user, loading, login, logout, loginError, loginBusy, getToken } = useAuth()
   usePwaDeepLink()
   useServiceWorker()
 
@@ -50,9 +54,10 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
-  // Guard: if someone navigates to 'cmc' without being logged in, redirect to admin
+  // Guard: redirect admin-only sections to login if not authenticated
   useEffect(() => {
-    if (activeSection === 'cmc' && !user) {
+    const adminOnly = ['cmc', 'community-kitchen']
+    if (adminOnly.includes(activeSection) && !user) {
       setActiveSection('admin')
     }
   }, [activeSection, user, setActiveSection])
@@ -89,7 +94,6 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                 <TrafficCard /><EmergencyDirectory />
               </div>
-              <div className="mb-4"><KitchenFeedingCard /></div>
             </>
           )}
 
@@ -131,13 +135,6 @@ export default function App() {
             </>
           )}
 
-          {activeSection === 'community-kitchen' && (
-            <>
-              <SectionTitle icon="🍲" en="Free Feeding Program" hil="Libre nga Pagkaon" />
-              <KitchenFeedingCard />
-            </>
-          )}
-
           {activeSection === 'emergency' && (
             <>
               <SectionTitle icon="🆘" en="Emergency Hotlines" hil="I-tap para tawgon" />
@@ -156,19 +153,31 @@ export default function App() {
                 <AdminLoginPage onLogin={login} loginError={loginError} loginBusy={loginBusy} />
               )}
               {!loading && user && (
-                <AdminPanel onNavigate={setActiveSection} user={user} />
+                <AdminPanel onNavigate={setActiveSection} user={user} getToken={getToken} />
               )}
             </>
           )}
 
-          {/* CMC route: only accessible when logged in, redirects to admin login otherwise */}
+          {/* CMC — admin-only, redirects to login if not authenticated */}
           {activeSection === 'cmc' && (
             <>
               {!loading && !user && (
                 <AdminLoginPage onLogin={login} loginError={loginError} loginBusy={loginBusy} />
               )}
               {!loading && user && (
-                <AdminPanel onNavigate={setActiveSection} user={user} defaultTab="cmc-manage" />
+                <AdminPanel onNavigate={setActiveSection} user={user} getToken={getToken} defaultTab="cmc-manage" />
+              )}
+            </>
+          )}
+
+          {/* Community Kitchen — admin-only, redirects to login if not authenticated */}
+          {activeSection === 'community-kitchen' && (
+            <>
+              {!loading && !user && (
+                <AdminLoginPage onLogin={login} loginError={loginError} loginBusy={loginBusy} />
+              )}
+              {!loading && user && (
+                <AdminPanel onNavigate={setActiveSection} user={user} getToken={getToken} defaultTab="kitchen" />
               )}
             </>
           )}

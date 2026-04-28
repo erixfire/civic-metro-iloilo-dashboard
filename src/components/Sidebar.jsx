@@ -1,22 +1,21 @@
 import useStore from '../store/useStore'
 
-// CMC is intentionally excluded — it only appears inside the Admin Panel
+// CMC and Community Kitchen are intentionally excluded — admin-only sections
 const NAV_ITEMS = [
-  { id: 'dashboard',         en: 'Home',               hil: 'Balay',                   icon: '🏠', group: 'main' },
-  { id: 'weather',           en: 'Weather & Tide',      hil: 'Panahon & Tubig',          icon: '🌤️', group: 'main' },
-  { id: 'incidents',         en: 'Incidents',           hil: 'Mga Insidente',            icon: '📌', group: 'main' },
-  { id: 'traffic',           en: 'Traffic',             hil: 'Trapiko',                  icon: '🚦', group: 'main' },
-  { id: 'utilities',         en: 'Utility Alerts',      hil: 'Alerto sa Kuryente/Tubig', icon: '⚡',  group: 'main' },
-  { id: 'community-kitchen', en: 'Free Feeding',        hil: 'Libre nga Pagkaon',        icon: '🍲', group: 'main' },
-  { id: 'emergency',         en: 'Emergency Hotlines',  hil: 'Emergency Hotlines',       icon: '🆘', group: 'main' },
-  { id: 'admin',             en: 'Admin Panel',         hil: '',                         icon: '⚙️',  group: 'admin' },
+  { id: 'dashboard',  en: 'Home',              hil: 'Balay',                   icon: '🏠', group: 'main'  },
+  { id: 'weather',    en: 'Weather & Tide',     hil: 'Panahon & Tubig',          icon: '🌤️', group: 'main'  },
+  { id: 'incidents',  en: 'Incidents',          hil: 'Mga Insidente',            icon: '📌', group: 'main'  },
+  { id: 'traffic',    en: 'Traffic',            hil: 'Trapiko',                  icon: '🚦', group: 'main'  },
+  { id: 'utilities',  en: 'Utility Alerts',     hil: 'Alerto sa Kuryente/Tubig', icon: '⚡',  group: 'main'  },
+  { id: 'emergency',  en: 'Emergency Hotlines', hil: 'Emergency Hotlines',       icon: '🆘', group: 'main'  },
+  { id: 'admin',      en: 'Admin Panel',        hil: '',                         icon: '⚙️',  group: 'admin' },
 ]
 
 const BOTTOM_NAV = [
-  { id: 'dashboard',  en: 'Home',      hil: 'Balay',     icon: '🏠' },
-  { id: 'incidents',  en: 'Incidents', hil: 'Insidente', icon: '📌' },
-  { id: 'weather',    en: 'Weather',   hil: 'Panahon',   icon: '🌤️' },
-  { id: 'emergency',  en: 'Help',      hil: 'Bulig',     icon: '🆘' },
+  { id: 'dashboard', en: 'Home',      hil: 'Balay',     icon: '🏠' },
+  { id: 'incidents', en: 'Incidents', hil: 'Insidente', icon: '📌' },
+  { id: 'weather',   en: 'Weather',   hil: 'Panahon',   icon: '🌤️' },
+  { id: 'emergency', en: 'Help',      hil: 'Bulig',     icon: '🆘' },
 ]
 
 export default function Sidebar() {
