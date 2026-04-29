@@ -2,18 +2,47 @@
  * /api/cmc
  * GET  ?type=meetings                  — list all
  * GET  ?type=meeting&id=cmc-005        — single + items + updates
- * POST { type:'meeting', ...fields }   — create new meeting
- * POST { type:'action_item', ...}      — create action item
- * POST { type:'dept_update', ...}      — submit dept update
- * PATCH { type:'meeting', id, status } — update meeting status
- * PATCH { type:'action_item', id, status } — update action item
+ * POST { type:'meeting', ...fields }   — create new meeting        [requires admin token]
+ * POST { type:'action_item', ...}      — create action item        [requires operator or admin token]
+ * POST { type:'dept_update', ...}      — submit dept update        [requires operator or admin token]
+ * PATCH { type:'meeting', id, status } — update meeting status     [requires admin token]
+ * PATCH { type:'action_item', id, status } — update action item    [requires operator or admin token]
  */
+
+const CORS = {
+  'Access-Control-Allow-Origin':  'https://iloilocity.app',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type':                 'application/json',
+}
+
+// ── Auth helper ────────────────────────────────────────────────────
+async function requireAuth(request, env, allowedRoles = ['admin', 'operator']) {
+  if (!env.JWT_SECRET) return null
+  const auth  = request.headers.get('Authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+  if (!token) return null
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const [header, body, sig] = parts
+    const enc    = new TextEncoder()
+    const key    = await crypto.subtle.importKey('raw', enc.encode(env.JWT_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
+    const sigBuf = new Uint8Array(sig.match(/.{2}/g).map((b) => parseInt(b, 16)))
+    const valid  = await crypto.subtle.verify('HMAC', key, sigBuf, enc.encode(`${header}.${body}`))
+    if (!valid) return null
+    const payload = JSON.parse(atob(body))
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null
+    if (!allowedRoles.includes(payload.role)) return null
+    return payload
+  } catch { return null }
+}
 
 export async function onRequestGet({ request, env }) {
   const url  = new URL(request.url)
   const type = url.searchParams.get('type') ?? 'meetings'
   const id   = url.searchParams.get('id')
-  const H    = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  const H    = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://iloilocity.app' }
 
   try {
     if (type === 'meetings') {
@@ -49,12 +78,16 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const H    = { 'Content-Type': 'application/json' }
+  const caller = await requireAuth(request, env)
+  if (!caller) return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS })
+
+  const H    = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://iloilocity.app' }
   const body = await request.json()
 
   try {
-    // ── Create new meeting
+    // ── Create new meeting (admin only)
     if (body.type === 'meeting') {
+      if (caller.role !== 'admin') return new Response(JSON.stringify({ error: 'Admin role required' }), { status: 403, headers: CORS })
       const { meeting_no, title, scheduled_at, venue, presided_by, agenda } = body
       if (!meeting_no || !scheduled_at) return Response.json({ error: 'meeting_no and scheduled_at required' }, { status: 400, headers: H })
       const id = `cmc-${String(meeting_no).padStart(3, '0')}`
@@ -101,11 +134,15 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestPatch({ request, env }) {
-  const H    = { 'Content-Type': 'application/json' }
+  const caller = await requireAuth(request, env)
+  if (!caller) return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS })
+
+  const H    = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://iloilocity.app' }
   const body = await request.json()
 
   try {
     if (body.type === 'meeting' && body.id) {
+      if (caller.role !== 'admin') return new Response(JSON.stringify({ error: 'Admin role required' }), { status: 403, headers: CORS })
       await env.DB.prepare(
         `UPDATE cmc_meetings SET status = ?, updated_at = datetime('now') WHERE id = ?`
       ).bind(body.status, body.id).run()

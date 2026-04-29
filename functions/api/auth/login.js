@@ -27,6 +27,12 @@ export async function onRequest({ request, env }) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   if (request.method !== 'POST')    return json({ error: 'Method not allowed' }, 405)
 
+  // ── Require JWT_SECRET to be configured ──────────────────────
+  if (!env.JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is not set.')
+    return json({ error: 'Service misconfigured. Contact administrator.' }, 503)
+  }
+
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
 
   // ── Rate limit check ─────────────────────────────────────────
@@ -83,7 +89,7 @@ export async function onRequest({ request, env }) {
   }
 
   // ── Issue token ──────────────────────────────────────────────
-  const secret = env.JWT_SECRET ?? 'civic-iloilo-CHANGE-THIS-IN-PRODUCTION'
+  const secret = env.JWT_SECRET
   const exp    = Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_HOURS * 3600
   const token  = await makeToken({ sub: user.id, username: user.username, role: user.role, exp }, secret)
 

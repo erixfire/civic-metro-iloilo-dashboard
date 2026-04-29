@@ -1,13 +1,13 @@
 /**
  * GET   /api/incidents               — list (filter: status, district, type, days, format=csv)
- * POST  /api/incidents               — create incident
- * PATCH /api/incidents               — single: { id, action } | bulk: { ids[], action }
+ * POST  /api/incidents               — create incident  [requires operator or admin token]
+ * PATCH /api/incidents               — single: { id, action } | bulk: { ids[], action }  [requires operator or admin token]
  */
 
 const CORS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  'https://iloilocity.app',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type':                 'application/json',
 }
 
@@ -15,6 +15,28 @@ const CSV_HEADERS = [
   'id','type','severity','district','address',
   'description','reporter','status','reported_at','resolved_at',
 ]
+
+// ── Auth helper ────────────────────────────────────────────────────
+async function requireAuth(request, env, allowedRoles = ['admin', 'operator']) {
+  if (!env.JWT_SECRET) return null
+  const auth  = request.headers.get('Authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+  if (!token) return null
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const [header, body, sig] = parts
+    const enc    = new TextEncoder()
+    const key    = await crypto.subtle.importKey('raw', enc.encode(env.JWT_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
+    const sigBuf = new Uint8Array(sig.match(/.{2}/g).map((b) => parseInt(b, 16)))
+    const valid  = await crypto.subtle.verify('HMAC', key, sigBuf, enc.encode(`${header}.${body}`))
+    if (!valid) return null
+    const payload = JSON.parse(atob(body))
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null
+    if (!allowedRoles.includes(payload.role)) return null
+    return payload
+  } catch { return null }
+}
 
 export async function onRequest(ctx) {
   const { request, env } = ctx
@@ -28,7 +50,7 @@ export async function onRequest(ctx) {
     const status   = url.searchParams.get('status')   ?? null
     const district = url.searchParams.get('district') ?? null
     const type     = url.searchParams.get('type')     ?? null
-    const days     = Math.min(parseInt(url.searchParams.get('days') ?? '30'), 365)
+    const days     = Math.min(parseInt(url.searchParams.get('days') ?? '30') || 30, 365)
     const format   = url.searchParams.get('format')   ?? 'json'
 
     let query  = `SELECT * FROM incidents WHERE reported_at >= datetime('now', '-${days} days')`
@@ -56,7 +78,7 @@ export async function onRequest(ctx) {
         headers: {
           'Content-Type': 'text/csv',
           'Content-Disposition': `attachment; filename="incidents_${new Date().toISOString().slice(0,10)}.csv"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': 'https://iloilocity.app',
         },
       })
     }
@@ -77,6 +99,9 @@ export async function onRequest(ctx) {
 
   // ── POST ─────────────────────────────────────────────────────
   if (method === 'POST') {
+    const caller = await requireAuth(request, env)
+    if (!caller) return json({ error: 'Authentication required' }, 401)
+
     let body
     try { body = await request.json() } catch { return json({ error: 'Invalid JSON' }, 400) }
 
@@ -98,6 +123,9 @@ export async function onRequest(ctx) {
 
   // ── PATCH (single or bulk) ────────────────────────────────────────
   if (method === 'PATCH') {
+    const caller = await requireAuth(request, env)
+    if (!caller) return json({ error: 'Authentication required' }, 401)
+
     let body
     try { body = await request.json() } catch { return json({ error: 'Invalid JSON' }, 400) }
 
@@ -122,6 +150,8 @@ export async function onRequest(ctx) {
       }
 
       if (action === 'delete') {
+        // Require admin role for bulk deletes
+        if (caller.role !== 'admin') return json({ error: 'Admin role required for bulk delete' }, 403)
         await env.DB.prepare(
           `DELETE FROM incidents WHERE id IN (${placeholders})`
         ).bind(...ids).run()
@@ -142,6 +172,7 @@ export async function onRequest(ctx) {
       return json({ success: true })
     }
     if (action === 'delete') {
+      if (caller.role !== 'admin') return json({ error: 'Admin role required for delete' }, 403)
       await env.DB.prepare(`DELETE FROM incidents WHERE id = ?`).bind(id).run()
       await writeAudit(env.DB, 'incident_deleted', 'incidents', id, null)
       return json({ success: true })

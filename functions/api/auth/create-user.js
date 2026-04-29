@@ -7,7 +7,7 @@
  */
 
 const CORS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  'https://iloilocity.app',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type':                 'application/json',
@@ -19,6 +19,12 @@ export async function onRequest({ request, env }) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   if (request.method !== 'POST')    return json({ error: 'Method not allowed' }, 405)
 
+  // ── Require JWT_SECRET to be configured ──────────────────────
+  if (!env.JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is not set.')
+    return json({ error: 'Service misconfigured. Contact administrator.' }, 503)
+  }
+
   // Count existing users — if 0, allow bootstrap without auth
   const { count } = await env.DB.prepare(`SELECT COUNT(*) as count FROM admin_users`).first() ?? { count: 1 }
 
@@ -26,7 +32,7 @@ export async function onRequest({ request, env }) {
     // Require admin token
     const auth    = request.headers.get('Authorization') ?? ''
     const token   = auth.startsWith('Bearer ') ? auth.slice(7) : null
-    const secret  = env.JWT_SECRET ?? 'civic-iloilo-default-secret-change-me'
+    const secret  = env.JWT_SECRET
     const payload = token ? await verifyToken(token, secret) : null
     if (!payload || payload.role !== 'admin') {
       return json({ error: 'Admin token required' }, 403)
