@@ -7,9 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/icon-192.svg', 'icons/icon-512.svg'],
+      includeAssets: ['favicon.svg', 'icons/icon-192.svg', 'icons/icon-512.svg', 'offline.html'],
       workbox: {
         navigateFallback: '/index.html',
+        // Serve offline.html for navigation requests when network AND cache are unavailable
+        navigateFallbackDenylist: [/^\/api\//],
+        offlineFallback: '/offline.html',
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
