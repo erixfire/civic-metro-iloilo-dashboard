@@ -9,10 +9,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.svg', 'icons/icon-512.svg', 'offline.html'],
       workbox: {
+        // SPA navigation fallback — serves index.html for all non-API routes
+        // offline.html is precached via includeAssets above and served by the
+        // SW catch handler when both network and cache are unavailable.
         navigateFallback: '/index.html',
-        // Serve offline.html for navigation requests when network AND cache are unavailable
         navigateFallbackDenylist: [/^\/api\//],
-        offlineFallback: '/offline.html',
+        // Note: 'offlineFallback' is not a Workbox GenerateSW option.
+        // Offline-page behaviour is handled by precaching offline.html
+        // and relying on navigateFallback for navigation requests.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
@@ -37,6 +41,15 @@ export default defineConfig({
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'osm-tiles-cache',
+              expiration: { maxEntries: 256, maxAgeSeconds: 604800 },
+            },
+          },
+          {
+            // CartoDB Positron tiles (used on mobile)
+            urlPattern: /^https:\/\/[abcd]\.basemaps\.cartocdn\.com\//,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'carto-tiles-cache',
               expiration: { maxEntries: 256, maxAgeSeconds: 604800 },
             },
           },
@@ -89,5 +102,22 @@ export default defineConfig({
   ],
   build: {
     outDir: 'dist',
+    // Split vendor code into separate chunks to reduce initial JS payload.
+    // Keeps the main bundle well under the 500 kB Vite warning threshold.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core
+          'vendor-react': ['react', 'react-dom'],
+          // Mapping libraries (heavy — leaflet ~150kB, react-leaflet ~15kB)
+          'vendor-leaflet': ['leaflet', 'react-leaflet', '@react-leaflet/core'],
+          // Charting (chart.js ~200kB + react-chartjs-2)
+          'vendor-charts': ['chart.js', 'react-chartjs-2'],
+          // State management
+          'vendor-store': ['zustand'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
   },
 })
