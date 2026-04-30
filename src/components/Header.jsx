@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
 
 export default function Header({ user, onLogout }) {
-  const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen } = useStore()
+  const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function Header({ user, onLogout }) {
         sidebarOpen ? 'md:left-60' : ''
       }`}
     >
-      {/* Skip to main content — visually hidden until focused */}
+      {/* Skip to main content */}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[#01696f] focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
@@ -55,7 +55,7 @@ export default function Header({ user, onLogout }) {
           iloilocity.app
         </span>
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
-          iloilocity.app — Iloilo City Dashboard
+          iloilocity.app — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
         </span>
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0"
@@ -98,6 +98,29 @@ export default function Header({ user, onLogout }) {
           </button>
         </div>
       )}
+
+      {/* EN / HIL language toggle */}
+      <div
+        role="group"
+        aria-label="Language selection"
+        className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0"
+      >
+        {['en', 'hil'].map((l) => (
+          <button
+            key={l}
+            onClick={() => l !== lang && toggleLang()}
+            aria-pressed={lang === l}
+            aria-label={l === 'en' ? 'Switch to English' : 'Pag-usab sa Hiligaynon'}
+            className={`px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${
+              lang === l
+                ? 'bg-[#01696f] text-white'
+                : 'bg-white dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+            }`}
+          >
+            {l === 'en' ? 'EN' : 'HIL'}
+          </button>
+        ))}
+      </div>
 
       {/* Dark mode toggle */}
       <button

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import useStore from '../store/useStore'
+import { useLang } from '../hooks/useLang'
 
 const NAV_ITEMS = [
   { id: 'dashboard',  en: 'Home',              hil: 'Balay',                   icon: '🏠', group: 'main'  },
@@ -8,8 +9,8 @@ const NAV_ITEMS = [
   { id: 'traffic',    en: 'Traffic',            hil: 'Trapiko',                  icon: '🚦', group: 'main'  },
   { id: 'utilities',  en: 'Utility Alerts',     hil: 'Alerto sa Kuryente/Tubig', icon: '⚡',  group: 'main'  },
   { id: 'news',       en: 'News & Alerts',      hil: 'Balita',                   icon: '📰', group: 'main'  },
-  { id: 'emergency',  en: 'Emergency Hotlines', hil: 'Emergency Hotlines',       icon: '🆘', group: 'main'  },
-  { id: 'admin',      en: 'Admin Panel',        hil: '',                         icon: '⚙️',  group: 'admin' },
+  { id: 'emergency',  en: 'Emergency Hotlines', hil: 'Mga Numero sa Emergency',  icon: '🆘', group: 'main'  },
+  { id: 'admin',      en: 'Admin Panel',        hil: 'Panel sang Admin',         icon: '⚙️',  group: 'admin' },
 ]
 
 const BOTTOM_NAV = [
@@ -21,27 +22,23 @@ const BOTTOM_NAV = [
 
 export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen, activeSection, setActiveSection } = useStore()
+  const { lang, t } = useLang()
   const mainItems  = NAV_ITEMS.filter(n => n.group === 'main')
   const adminItems = NAV_ITEMS.filter(n => n.group === 'admin')
   const firstFocusableRef = useRef(null)
 
   function navigate(id) { setActiveSection(id); setSidebarOpen(false) }
 
-  // Trap focus inside sidebar when open on mobile; Escape closes it
   useEffect(() => {
     if (!sidebarOpen) return
     firstFocusableRef.current?.focus()
-
-    function onKey(e) {
-      if (e.key === 'Escape') setSidebarOpen(false)
-    }
+    function onKey(e) { if (e.key === 'Escape') setSidebarOpen(false) }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [sidebarOpen, setSidebarOpen])
 
   return (
     <>
-      {/* Backdrop overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
@@ -53,8 +50,7 @@ export default function Sidebar() {
       <aside
         id="app-sidebar"
         role="navigation"
-        aria-label="Main navigation"
-        aria-hidden={!sidebarOpen && window?.innerWidth < 768 ? 'true' : undefined}
+        aria-label={t('Main navigation', 'Panguna nga Nabigasyon')}
         className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-transform duration-300 flex flex-col ${
           sidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full w-60 md:translate-x-0 md:w-0 md:overflow-hidden'
         }`}
@@ -66,19 +62,21 @@ export default function Sidebar() {
           </svg>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-tight truncate">iloilocity.app</div>
-            <div className="text-[10px] text-zinc-400">Iloilo City Dashboard</div>
+            <div className="text-[10px] text-zinc-400">
+              {t('Iloilo City Dashboard', 'Dashboard sang Iloilo City')}
+            </div>
           </div>
           <button
             ref={firstFocusableRef}
             onClick={() => setSidebarOpen(false)}
             className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
-            aria-label="Close navigation menu"
+            aria-label={t('Close navigation menu', 'Isara ang menu')}
           >
             <span aria-hidden="true">✕</span>
           </button>
         </div>
 
-        <nav aria-label="Main pages" className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+        <nav aria-label={t('Main pages', 'Mga Pahina')} className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
           {mainItems.map((item) => (
             <button
               key={item.id}
@@ -92,14 +90,22 @@ export default function Sidebar() {
             >
               <span className="text-base shrink-0" aria-hidden="true">{item.icon}</span>
               <div className="min-w-0">
-                <div className="text-sm font-semibold truncate">{item.en}</div>
-                {item.hil && <div className="text-[10px] opacity-60 truncate" lang="hil">{item.hil}</div>}
+                {/* Primary label: active language */}
+                <div className="text-sm font-semibold truncate" lang={lang}>
+                  {t(item.en, item.hil)}
+                </div>
+                {/* Subtitle: the other language (dimmed) */}
+                <div className="text-[10px] opacity-50 truncate" lang={lang === 'en' ? 'hil' : 'en'}>
+                  {lang === 'en' ? item.hil : item.en}
+                </div>
               </div>
             </button>
           ))}
 
-          <div className="pt-4 pb-1 px-3" role="separator" aria-label="Admin section">
-            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest" aria-hidden="true">Admin</div>
+          <div className="pt-4 pb-1 px-3" role="separator" aria-label={t('Admin section', 'Seksyon sang Admin')}>
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest" aria-hidden="true">
+              {t('Admin', 'Admin')}
+            </div>
           </div>
 
           {adminItems.map((item) => (
@@ -114,7 +120,7 @@ export default function Sidebar() {
               }`}
             >
               <span className="text-base shrink-0" aria-hidden="true">{item.icon}</span>
-              <span className="text-sm font-medium truncate">{item.en}</span>
+              <span className="text-sm font-medium truncate" lang={lang}>{t(item.en, item.hil)}</span>
             </button>
           ))}
         </nav>
@@ -126,7 +132,7 @@ export default function Sidebar() {
 
       {/* Mobile bottom nav */}
       <nav
-        aria-label="Mobile quick navigation"
+        aria-label={t('Mobile quick navigation', 'Madali nga Nabigasyon')}
         className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10"
       >
         <div className="flex items-stretch" role="list">
@@ -136,7 +142,7 @@ export default function Sidebar() {
               onClick={() => navigate(item.id)}
               role="listitem"
               aria-current={activeSection === item.id ? 'page' : undefined}
-              aria-label={item.en}
+              aria-label={t(item.en, item.hil)}
               className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
                 activeSection === item.id
                   ? 'text-[#01696f] dark:text-teal-400'
@@ -144,8 +150,7 @@ export default function Sidebar() {
               }`}
             >
               <span className="text-xl" aria-hidden="true">{item.icon}</span>
-              <span className="text-[10px] font-semibold">{item.en}</span>
-              <span className="text-[9px] opacity-60" lang="hil">{item.hil}</span>
+              <span className="text-[10px] font-semibold" lang={lang}>{t(item.en, item.hil)}</span>
             </button>
           ))}
         </div>
