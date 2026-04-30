@@ -1,5 +1,6 @@
 /**
- * AdminScraperPanel — Admin tab for triggering scrapers and viewing results
+ * AdminScraperPanel — Admin tab for triggering scrapers and viewing results.
+ * Shows a stale-data warning when the last successful scrape was >24h ago.
  */
 import { useState } from 'react'
 
@@ -15,15 +16,29 @@ const SOURCES = [
   { key: 'news',    label: 'Local News',    icon: '📰' },
 ]
 
+const STALE_HOURS = 24
+
 export default function AdminScraperPanel({ getToken }) {
   const [activeSource, setActiveSource] = useState('all')
   const [status,       setStatus]       = useState(null)
   const [running,      setRunning]      = useState(false)
   const [items,        setItems]        = useState([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [retryCount,   setRetryCount]   = useState(0)
 
-  async function triggerScrape(source) {
+  // Compute stale-data warning from stored items
+  const latestScrapedAt = items.reduce((latest, item) => {
+    const d = item.scraped_at ? new Date(item.scraped_at).getTime() : 0
+    return d > latest ? d : latest
+  }, 0)
+  const hoursSinceLastScrape = latestScrapedAt
+    ? (Date.now() - latestScrapedAt) / 3_600_000
+    : null
+  const isStale = hoursSinceLastScrape !== null && hoursSinceLastScrape > STALE_HOURS
+
+  async function triggerScrape(source, attempt = 0) {
     setRunning(true); setStatus(null)
+    const MAX_RETRIES = 2
     try {
       const token = getToken?.()
       const res   = await fetch('/api/scrape', {
@@ -31,13 +46,26 @@ export default function AdminScraperPanel({ getToken }) {
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body:    JSON.stringify({ source }),
       })
+      if (!res.ok && attempt < MAX_RETRIES) {
+        // Exponential backoff retry for 5xx errors
+        setRetryCount(attempt + 1)
+        const delay = 1000 * 2 ** attempt
+        await new Promise((r) => setTimeout(r, delay))
+        return triggerScrape(source, attempt + 1)
+      }
       const d = await res.json()
-      setStatus(d)
+      setStatus(d); setRetryCount(0)
       loadItems(source)
     } catch (e) {
-      setStatus({ error: e.message })
+      if (attempt < MAX_RETRIES) {
+        setRetryCount(attempt + 1)
+        const delay = 1000 * 2 ** attempt
+        await new Promise((r) => setTimeout(r, delay))
+        return triggerScrape(source, attempt + 1)
+      }
+      setStatus({ error: e.message }); setRetryCount(0)
     } finally {
-      setRunning(false)
+      if (attempt === 0 || attempt >= MAX_RETRIES) setRunning(false)
     }
   }
 
@@ -55,6 +83,23 @@ export default function AdminScraperPanel({ getToken }) {
 
   return (
     <div className="space-y-4">
+
+      {/* Stale data warning */}
+      {isStale && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-xs">
+          <span className="text-base shrink-0">⚠️</span>
+          <div>
+            <span className="font-semibold">Stale data</span>
+            {' — '}
+            Last scrape was {Math.round(hoursSinceLastScrape)}h ago for <strong>{activeSource}</strong>.
+            Consider running the scraper to refresh.
+          </div>
+          <button onClick={() => triggerScrape(activeSource)} disabled={running}
+            className="ml-auto shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline disabled:opacity-50">
+            Run now
+          </button>
+        </div>
+      )}
 
       {/* Source tabs */}
       <div className="flex gap-1.5 flex-wrap">
@@ -75,7 +120,13 @@ export default function AdminScraperPanel({ getToken }) {
         <button onClick={() => triggerScrape(activeSource)} disabled={running}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#01696f] hover:bg-[#015a5f] disabled:opacity-50 text-white text-sm font-semibold transition-colors">
           {running
-            ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Scraping…</>
+            ? <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                {retryCount > 0 ? `Retry ${retryCount}…` : 'Scraping…'}
+              </>
             : <>📡 Run {SOURCES.find(s => s.key === activeSource)?.label} Scraper</>
           }
         </button>

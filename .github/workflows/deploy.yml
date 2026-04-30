@@ -7,19 +7,31 @@ on:
     branches: [main]
 
 jobs:
-  build-and-deploy:
+  test:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run Vitest
+        run: npm test
+
+  deploy:
     runs-on: ubuntu-latest
     name: Build & Deploy
+    needs: test
     permissions:
       contents: read
       deployments: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -36,6 +48,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=civic-metro-iloilo-dashboard
-        # PRs deploy as preview; pushes to main deploy to production automatically.
+        # PRs create preview deployments; pushes to main deploy to production.
         # Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in:
         # GitHub → Settings → Secrets and variables → Actions

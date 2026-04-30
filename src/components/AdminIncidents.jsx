@@ -1,17 +1,25 @@
 /**
  * AdminIncidents — Full incident management table for Admin Panel
- * Features: filter by type/district/status, select all, bulk resolve/delete, CSV export, stats bar
+ * Features: filter by type/district/status (including pending), select all,
+ *   bulk approve/reject/resolve/delete, CSV export, stats bar, moderation queue badge.
  */
 import { useState, useEffect, useCallback } from 'react'
 
 const TYPES      = ['all','flood','fire','landslide','accident','medical','crime','infrastructure','other']
 const DISTRICTS  = ['all','City Proper','Arevalo','Jaro','La Paz','Lapuz','Mandurriao','Molo','Rizal']
-const STATUSES   = ['all','active','resolved']
+const STATUSES   = ['all','pending','active','resolved','rejected']
 const SEVERITIES = { critical: 'text-red-600', high: 'text-orange-500', moderate: 'text-yellow-500', low: 'text-green-600' }
 
 const TYPE_ICON = {
   flood: '🌊', fire: '🔥', landslide: '⛰️', accident: '🚗',
-  medical: '🏥', crime: '🚨', infrastructure: '🚧', other: '📌',
+  medical: '🏥', crime: '🚨', infrastructure: '🚧', other: '📌', traffic: '🚖',
+}
+
+const STATUS_BADGE = {
+  active:   'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  resolved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  pending:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  rejected: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
 }
 
 export default function AdminIncidents() {
@@ -43,9 +51,9 @@ export default function AdminIncidents() {
 
   useEffect(() => { load() }, [load])
 
-  function showToast(msg) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3000)
+  function showToast(msg, isError = false) {
+    setToast({ msg, isError })
+    setTimeout(() => setToast(''), 3500)
   }
 
   function toggleSelect(id) {
@@ -75,18 +83,25 @@ export default function AdminIncidents() {
         body: JSON.stringify({ ids: [...selected], action }),
       })
       const d = await r.json()
-      showToast(`✅ ${action === 'resolve' ? 'Resolved' : 'Deleted'} ${d.affected} incident(s)`)
+      const verb = { approve: 'Approved', reject: 'Rejected', resolve: 'Resolved', delete: 'Deleted' }[action] ?? action
+      showToast(`✅ ${verb} ${d.affected} incident(s)`)
       load()
+    } catch (e) {
+      showToast(`❌ Failed: ${e.message}`, true)
     } finally { setBulkBusy(false) }
   }
 
   async function singleAction(id, action) {
-    await fetch('/api/incidents', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action }),
-    })
-    load()
+    try {
+      await fetch('/api/incidents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      })
+      load()
+    } catch (e) {
+      showToast(`❌ Failed: ${e.message}`, true)
+    }
   }
 
   function exportCSV() {
@@ -100,12 +115,29 @@ export default function AdminIncidents() {
   }
 
   const allSelected = incidents.length > 0 && selected.size === incidents.length
+  const hasPending  = incidents.some((i) => i.status === 'pending')
 
   return (
     <div className="space-y-4">
 
+      {/* Moderation queue notice */}
+      {(summary.pending ?? 0) > 0 && filters.status !== 'pending' && (
+        <button
+          onClick={() => setFilters((f) => ({ ...f, status: 'pending' }))}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 text-xs font-semibold hover:bg-yellow-100 transition-colors"
+        >
+          <span className="text-base">⏳</span>
+          <span>{summary.pending} incident{summary.pending > 1 ? 's' : ''} pending review — click to moderate</span>
+          <span className="ml-auto">→</span>
+        </button>
+      )}
+
       {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-2.5">
+          <div className="text-[11px] text-yellow-600 uppercase tracking-wider">⏳ Pending</div>
+          <div className="tabular text-xl font-bold text-yellow-700 dark:text-yellow-300">{summary.pending ?? '—'}</div>
+        </div>
         <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2.5">
           <div className="text-[11px] text-red-500 uppercase tracking-wider">Active</div>
           <div className="tabular text-xl font-bold text-red-600">{summary.active ?? '—'}</div>
@@ -147,9 +179,21 @@ export default function AdminIncidents() {
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#01696f]/10 border border-[#01696f]/30">
           <span className="text-xs font-semibold text-[#01696f]">{selected.size} selected</span>
+          {hasPending && (
+            <>
+              <button onClick={() => bulkAction('approve')} disabled={bulkBusy}
+                className="text-xs font-semibold text-green-600 hover:text-green-700 disabled:opacity-50">
+                ✅ Approve all
+              </button>
+              <button onClick={() => bulkAction('reject')} disabled={bulkBusy}
+                className="text-xs font-semibold text-zinc-500 hover:text-zinc-700 disabled:opacity-50">
+                ❌ Reject all
+              </button>
+            </>
+          )}
           <button onClick={() => bulkAction('resolve')} disabled={bulkBusy}
-            className="text-xs font-semibold text-green-600 hover:text-green-700 disabled:opacity-50">
-            ✅ Resolve all
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50">
+            🗸 Resolve all
           </button>
           <button onClick={() => bulkAction('delete')} disabled={bulkBusy}
             className="text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-50">
@@ -160,7 +204,11 @@ export default function AdminIncidents() {
       )}
 
       {/* Toast */}
-      {toast && <div className="text-xs text-green-600 font-semibold">{toast}</div>}
+      {toast && (
+        <div className={`text-xs font-semibold ${ toast.isError ? 'text-red-500' : 'text-green-600' }`}>
+          {toast.msg}
+        </div>
+      )}
 
       {/* Table */}
       {loading && (
@@ -182,6 +230,7 @@ export default function AdminIncidents() {
               <tr className="border-b border-black/10 dark:border-white/10 text-zinc-400 uppercase tracking-wider">
                 <th className="pb-2 pr-3 text-left w-8">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                    aria-label="Select all incidents"
                     className="rounded cursor-pointer" />
                 </th>
                 <th className="pb-2 pr-3 text-left">Type</th>
@@ -197,14 +246,17 @@ export default function AdminIncidents() {
               {incidents.map((inc) => (
                 <tr key={inc.id} className={`transition-colors ${
                   selected.has(inc.id) ? 'bg-[#01696f]/5' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                } ${
+                  inc.status === 'pending' ? 'border-l-2 border-yellow-400' : ''
                 }`}>
                   <td className="py-2.5 pr-3">
                     <input type="checkbox" checked={selected.has(inc.id)} onChange={() => toggleSelect(inc.id)}
+                      aria-label={`Select incident ${inc.id}`}
                       className="rounded cursor-pointer" />
                   </td>
                   <td className="py-2.5 pr-3 whitespace-nowrap">
                     <span className="flex items-center gap-1.5">
-                      <span>{TYPE_ICON[inc.type] ?? '📌'}</span>
+                      <span aria-hidden="true">{TYPE_ICON[inc.type] ?? '📌'}</span>
                       <span className="capitalize font-medium text-zinc-700 dark:text-zinc-200">{inc.type}</span>
                     </span>
                   </td>
@@ -219,11 +271,9 @@ export default function AdminIncidents() {
                     {inc.address && <div className="text-zinc-400 truncate">{inc.address}</div>}
                   </td>
                   <td className="py-2.5 pr-3">
-                    <span className={`px-2 py-0.5 rounded-full font-semibold ${
-                      inc.status === 'active'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                        : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                    }`}>{inc.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full font-semibold ${ STATUS_BADGE[inc.status] ?? 'bg-zinc-100 text-zinc-500' }`}>
+                      {inc.status}
+                    </span>
                   </td>
                   <td className="py-2.5 pr-3 text-zinc-400 whitespace-nowrap">
                     {inc.reported_at
@@ -232,11 +282,23 @@ export default function AdminIncidents() {
                   </td>
                   <td className="py-2.5">
                     <div className="flex gap-2">
+                      {inc.status === 'pending' && (
+                        <>
+                          <button onClick={() => singleAction(inc.id, 'approve')}
+                            title="Approve"
+                            className="text-green-600 hover:text-green-700 font-bold">✓</button>
+                          <button onClick={() => singleAction(inc.id, 'reject')}
+                            title="Reject"
+                            className="text-zinc-400 hover:text-zinc-600 font-bold">×</button>
+                        </>
+                      )}
                       {inc.status === 'active' && (
                         <button onClick={() => singleAction(inc.id, 'resolve')}
-                          className="text-green-600 hover:text-green-700 font-semibold">✔</button>
+                          title="Mark resolved"
+                          className="text-blue-500 hover:text-blue-700 font-semibold">✔</button>
                       )}
                       <button onClick={() => singleAction(inc.id, 'delete')}
+                        title="Delete"
                         className="text-red-400 hover:text-red-600">🗑️</button>
                     </div>
                   </td>

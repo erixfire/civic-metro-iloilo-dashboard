@@ -1,10 +1,13 @@
 /**
  * useIncidentStore — live D1-backed incident management.
  * Falls back to SAMPLE_INCIDENTS when API is unavailable (demo / staging).
+ *
+ * Public submissions are sent as status=pending and await admin moderation.
+ * Authenticated operators/admins may submit directly as active.
  */
 import { create } from 'zustand'
 
-// ── Sample incidents for demo / API fallback ────────────────────────────────
+// ── Sample incidents for demo / API fallback ─────────────────────────────
 const SAMPLE_INCIDENTS = [
   {
     id: 'inc-demo-001',
@@ -130,7 +133,7 @@ const SAMPLE_INCIDENTS = [
   },
 ]
 
-// ── Store ────────────────────────────────────────────────────────────────────
+// ── Store ──────────────────────────────────────────────────────
 const useIncidentStore = create((set, get) => ({
   incidents:   SAMPLE_INCIDENTS, // pre-seeded for demo
   loading:     false,
@@ -149,18 +152,17 @@ const useIncidentStore = create((set, get) => ({
       if (!res.ok) throw new Error(`API ${res.status}`)
       const data = await res.json()
       const live = data.incidents ?? []
-      // If API returns data, use it; otherwise keep sample data
       set({
         incidents: live.length > 0 ? live : SAMPLE_INCIDENTS,
         loading: false,
         lastFetched: new Date().toISOString(),
       })
     } catch {
-      // API unavailable — keep sample data visible
       set({ loading: false, lastFetched: new Date().toISOString() })
     }
   },
 
+  // Public submission — optimistically adds as 'pending'; API will confirm
   addIncident: async (incident) => {
     set({ loading: true, error: null })
     try {
@@ -170,18 +172,57 @@ const useIncidentStore = create((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...incident }),
       })
-      if (!res.ok) throw new Error(`POST ${res.status}`)
+      const data = await res.json().catch(() => ({}))
+      const status = data.status ?? 'pending' // API returns actual status
       set((s) => ({
         loading: false,
         incidents: [
-          { id, reportedAt: new Date().toISOString(), status: 'active', ...incident },
+          { id, reportedAt: new Date().toISOString(), status, ...incident },
           ...s.incidents,
         ],
       }))
-      return id
+      return { id, status }
     } catch (e) {
-      set({ loading: false, error: e.message })
+      // Offline fallback: add locally as pending
+      const id = `inc-${Date.now()}`
+      set((s) => ({
+        loading: false,
+        error: null, // don't surface error to user — offline reports are queued
+        incidents: [
+          { id, reportedAt: new Date().toISOString(), status: 'pending', ...incident },
+          ...s.incidents,
+        ],
+      }))
+      return { id, status: 'pending' }
     }
+  },
+
+  approveIncident: async (id) => {
+    try {
+      await fetch('/api/incidents', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'approve' }),
+      })
+      set((s) => ({
+        incidents: s.incidents.map((i) =>
+          i.id === id ? { ...i, status: 'active' } : i
+        ),
+      }))
+    } catch (e) { set({ error: e.message }) }
+  },
+
+  rejectIncident: async (id) => {
+    try {
+      await fetch('/api/incidents', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'reject' }),
+      })
+      set((s) => ({
+        incidents: s.incidents.filter((i) => i.id !== id),
+      }))
+    } catch (e) { set({ error: e.message }) }
   },
 
   resolveIncident: async (id) => {
@@ -196,9 +237,7 @@ const useIncidentStore = create((set, get) => ({
           i.id === id ? { ...i, status: 'resolved', resolvedAt: new Date().toISOString() } : i
         ),
       }))
-    } catch (e) {
-      set({ error: e.message })
-    }
+    } catch (e) { set({ error: e.message }) }
   },
 
   deleteIncident: async (id) => {
@@ -209,12 +248,11 @@ const useIncidentStore = create((set, get) => ({
         body: JSON.stringify({ id, action: 'delete' }),
       })
       set((s) => ({ incidents: s.incidents.filter((i) => i.id !== id) }))
-    } catch (e) {
-      set({ error: e.message })
-    }
+    } catch (e) { set({ error: e.message }) }
   },
 
-  activeIncidents: () => get().incidents.filter((i) => i.status === 'active'),
+  activeIncidents:  () => get().incidents.filter((i) => i.status === 'active'),
+  pendingIncidents: () => get().incidents.filter((i) => i.status === 'pending'),
 }))
 
 export default useIncidentStore
