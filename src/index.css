@@ -2,36 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply antialiased text-zinc-800 dark:text-zinc-100;
-  }
-  .tabular {
-    font-variant-numeric: tabular-nums;
+/* ---- Global focus-visible ring (WCAG 2.1 AA) ---- */
+*:focus-visible {
+  outline: 2px solid #01696f;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove outline for mouse/touch users (only show for keyboard nav) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---- Screen-reader only utility ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.focus\:not-sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: initial;
+  margin: initial;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* ---- Tabular numbers for all numeric KPI displays ---- */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Reduced-motion: pause all animations ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-@layer components {
-  .input-field {
-    @apply w-full rounded-lg border border-black/10 dark:border-white/10
-           bg-white dark:bg-zinc-900
-           text-zinc-700 dark:text-zinc-200
-           text-sm px-3 py-1.5
-           focus:outline-none focus:ring-2 focus:ring-[#01696f];
+/* ---- High-contrast mode improvements ---- */
+@media (forced-colors: active) {
+  .bg-\[\#01696f\] { background-color: Highlight; }
+  .text-\[\#01696f\] { color: HighlightText; }
+  button[aria-current="page"] {
+    outline: 2px solid Highlight;
   }
-  .btn-primary {
-    @apply w-full bg-[#01696f] hover:bg-[#015a5f] disabled:opacity-50
-           text-white text-sm font-semibold rounded-lg py-2
-           transition-colors cursor-pointer;
-  }
-  .btn-secondary {
-    @apply px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10
-           bg-white dark:bg-zinc-800
-           text-zinc-600 dark:text-zinc-300
-           text-sm font-medium hover:border-[#01696f]
-           transition-colors cursor-pointer;
-  }
-  .label {
-    @apply block text-xs text-zinc-400 mb-1;
+}
+
+/* ---- Mobile: add bottom padding for bottom nav bar ---- */
+@media (max-width: 767px) {
+  #main-content {
+    padding-bottom: 4rem; /* 64px = bottom nav height */
   }
 }

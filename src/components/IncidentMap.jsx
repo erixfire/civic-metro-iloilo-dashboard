@@ -1,7 +1,8 @@
 /**
- * IncidentMap — Public-facing incident map using Leaflet + OpenStreetMap
- * Shows all active/recent incidents as colored pins with popups.
- * Citizens can tap a pin to see incident details.
+ * IncidentMap — Public-facing incident map using Leaflet + OpenStreetMap.
+ * Mobile-optimised: responsive height, lighter tiles on small screens,
+ * touch-friendly tap disabled (avoids double-tap zoom conflicts on Android).
+ * Accessible: filter buttons use aria-pressed, map region is labelled.
  */
 import { useEffect, useRef, useState } from 'react'
 import useIncidentStore from '../store/useIncidentStore'
@@ -31,7 +32,6 @@ const SEVERITY_BG = {
 
 const CENTER = [10.7202, 122.5621]
 
-// Accept both lat/lng (sample data) and latitude/longitude (D1 API)
 function getCoords(inc) {
   const lat = parseFloat(inc.lat ?? inc.latitude)
   const lng = parseFloat(inc.lng ?? inc.longitude)
@@ -43,12 +43,13 @@ export default function IncidentMap() {
   const mapRef     = useRef(null)
   const leafletRef = useRef(null)
   const markersRef = useRef([])
-  const [ready, setReady]   = useState(false)
+  const [ready,  setReady]  = useState(false)
   const [filter, setFilter] = useState('active')
 
   const { incidents, fetchIncidents } = useIncidentStore()
-
   useEffect(() => { fetchIncidents() }, [fetchIncidents])
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
 
   // Init Leaflet map
   useEffect(() => {
@@ -57,16 +58,28 @@ export default function IncidentMap() {
     import('leaflet').then((L) => {
       delete L.Icon.Default.prototype._getIconUrl
       L.Icon.Default.mergeOptions({
-        iconUrl:        'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        iconRetinaUrl:  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        shadowUrl:      'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       })
 
-      const map = L.map(mapRef.current, { center: CENTER, zoom: 13, zoomControl: true })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://osm.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map)
+      const map = L.map(mapRef.current, {
+        center:          CENTER,
+        zoom:            isMobile ? 12 : 13,
+        zoomControl:     true,
+        tap:             false, // prevents double-tap zoom issues on Android
+        scrollWheelZoom: false,
+      })
+
+      // Lighter CartoDB Positron tiles on mobile (faster on 4G/slow LTE)
+      const tileUrl = isMobile
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      const tileAttr = isMobile
+        ? '&copy; <a href="https://carto.com">CARTO</a> &copy; <a href="https://openstreetmap.org">OSM</a>'
+        : '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
+
+      L.tileLayer(tileUrl, { attribution: tileAttr, maxZoom: 19, detectRetina: false }).addTo(map)
 
       leafletRef.current = { L, map }
       setReady(true)
@@ -78,7 +91,7 @@ export default function IncidentMap() {
         leafletRef.current = null
       }
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-render markers on incident/filter change
   useEffect(() => {
@@ -100,20 +113,19 @@ export default function IncidentMap() {
       const color  = SEVERITY_COLOR[inc.severity] ?? '#6b7280'
       const bgCol  = SEVERITY_BG[inc.severity]    ?? '#f9fafb'
 
-      // Emoji pin icon
       const icon = L.divIcon({
         className: '',
         html: `
-          <div style="
+          <div role="img" aria-label="${inc.type} incident, ${inc.severity} severity" style="
             width:34px;height:34px;border-radius:50%;
             background:${bgCol};border:2.5px solid ${color};
             box-shadow:0 2px 6px rgba(0,0,0,.25);
             display:flex;align-items:center;justify-content:center;
-            font-size:17px;line-height:1;
+            font-size:17px;line-height:1;cursor:pointer;
           ">${emoji}</div>`,
-        iconSize:   [34, 34],
-        iconAnchor: [17, 17],
-        popupAnchor:[0, -20],
+        iconSize:    [34, 34],
+        iconAnchor:  [17, 17],
+        popupAnchor: [0, -20],
       })
 
       const reportedTime = inc.reportedAt ?? inc.reported_at ?? null
@@ -122,9 +134,9 @@ export default function IncidentMap() {
         : ''
 
       const popup = `
-        <div style="min-width:200px;font-family:Inter,sans-serif;">
+        <div style="min-width:190px;max-width:260px;font-family:Inter,sans-serif;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="font-size:20px">${emoji}</span>
+            <span style="font-size:20px" aria-hidden="true">${emoji}</span>
             <div>
               <div style="font-weight:700;font-size:13px;text-transform:capitalize;">${inc.type ?? 'Incident'}</div>
               <div style="font-size:10px;color:#6b7280">${inc.district ?? ''}</div>
@@ -133,17 +145,13 @@ export default function IncidentMap() {
           <div style="font-size:11px;color:#374151;margin-bottom:4px;">${inc.address ?? inc.location ?? ''}</div>
           <div style="font-size:11px;color:#4b5563;margin-bottom:6px;">${inc.description ?? ''}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
-            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};border:1px solid ${color}55;text-transform:capitalize;">
-              ${inc.severity}
-            </span>
-            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:#f4f4f5;color:#3f3f46;">
-              ${inc.status}
-            </span>
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:${color}22;color:${color};border:1px solid ${color}55;text-transform:capitalize;">${inc.severity}</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:#f4f4f5;color:#3f3f46;">${inc.status}</span>
           </div>
           ${timeStr ? `<div style="margin-top:5px;font-size:10px;color:#9ca3af">${timeStr} · ${inc.reportedBy ?? ''}</div>` : ''}
         </div>`
 
-      const marker = L.marker(coords, { icon }).bindPopup(popup, { maxWidth: 260 }).addTo(map)
+      const marker = L.marker(coords, { icon }).bindPopup(popup, { maxWidth: 280 }).addTo(map)
       markersRef.current.push(marker)
     })
   }, [ready, incidents, filter])
@@ -164,15 +172,19 @@ export default function IncidentMap() {
           <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-100">📍 Incident Map</h2>
           <p className="text-xs text-zinc-400">Mapa sang mga Insidente · Iloilo City</p>
         </div>
-        {/* Filter tabs */}
-        <div className="flex gap-1.5 flex-wrap">
+        {/* Filter buttons */}
+        <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Filter incidents by status">
           {['active','resolved','all'].map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
               className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border capitalize transition-colors ${
                 filter === f
                   ? 'bg-[#01696f] text-white border-[#01696f]'
                   : 'bg-white dark:bg-zinc-900 text-zinc-500 border-black/10 dark:border-white/10 hover:border-zinc-400'
-              }`}>
+              }`}
+            >
               {f} ({counts[f]})
             </button>
           ))}
@@ -182,14 +194,22 @@ export default function IncidentMap() {
       {/* Leaflet CSS */}
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-      {/* Map */}
-      <div ref={mapRef} style={{ height: '440px', width: '100%' }} />
+      {/* Map container — responsive height */}
+      <div
+        ref={mapRef}
+        className="h-[300px] sm:h-[440px] w-full"
+        role="application"
+        aria-label="Interactive incident map of Iloilo City. Use arrow keys to pan, +/- to zoom."
+      />
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 px-4 py-2.5 border-t border-black/5 dark:border-white/5">
+      <div
+        className="flex flex-wrap gap-x-3 gap-y-1 px-4 py-2.5 border-t border-black/5 dark:border-white/5"
+        aria-label="Incident type legend"
+      >
         {Object.entries(TYPE_EMOJI).map(([type, emoji]) => (
           <div key={type} className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 capitalize">
-            <span>{emoji}</span>
+            <span aria-hidden="true">{emoji}</span>
             <span>{type}</span>
           </div>
         ))}

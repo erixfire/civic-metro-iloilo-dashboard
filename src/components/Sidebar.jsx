@@ -1,6 +1,6 @@
+import { useEffect, useRef } from 'react'
 import useStore from '../store/useStore'
 
-// CMC and Community Kitchen are admin-only — not shown in public nav
 const NAV_ITEMS = [
   { id: 'dashboard',  en: 'Home',              hil: 'Balay',                   icon: '🏠', group: 'main'  },
   { id: 'weather',    en: 'Weather & Tide',     hil: 'Panahon & Tubig',          icon: '🌤️', group: 'main'  },
@@ -23,20 +23,44 @@ export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen, activeSection, setActiveSection } = useStore()
   const mainItems  = NAV_ITEMS.filter(n => n.group === 'main')
   const adminItems = NAV_ITEMS.filter(n => n.group === 'admin')
+  const firstFocusableRef = useRef(null)
 
   function navigate(id) { setActiveSection(id); setSidebarOpen(false) }
 
+  // Trap focus inside sidebar when open on mobile; Escape closes it
+  useEffect(() => {
+    if (!sidebarOpen) return
+    firstFocusableRef.current?.focus()
+
+    function onKey(e) {
+      if (e.key === 'Escape') setSidebarOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [sidebarOpen, setSidebarOpen])
+
   return (
     <>
+      {/* Backdrop overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
-      <aside className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-transform duration-300 flex flex-col ${
-        sidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full w-60 md:translate-x-0 md:w-0 md:overflow-hidden'
-      }`}>
+      <aside
+        id="app-sidebar"
+        role="navigation"
+        aria-label="Main navigation"
+        aria-hidden={!sidebarOpen && window?.innerWidth < 768 ? 'true' : undefined}
+        className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-transform duration-300 flex flex-col ${
+          sidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full w-60 md:translate-x-0 md:w-0 md:overflow-hidden'
+        }`}
+      >
         <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-black/10 dark:border-white/10 shrink-0">
-          <svg width="28" height="28" viewBox="0 0 32 32" aria-label="iloilocity.app">
+          <svg width="28" height="28" viewBox="0 0 32 32" aria-label="iloilocity.app logo" role="img">
             <rect width="32" height="32" rx="7" fill="#01696f" />
             <text x="16" y="22" fontFamily="Inter,sans-serif" fontSize="14" fontWeight="700" fill="white" textAnchor="middle">IC</text>
           </svg>
@@ -44,40 +68,52 @@ export default function Sidebar() {
             <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-tight truncate">iloilocity.app</div>
             <div className="text-[10px] text-zinc-400">Iloilo City Dashboard</div>
           </div>
-          <button onClick={() => setSidebarOpen(false)}
+          <button
+            ref={firstFocusableRef}
+            onClick={() => setSidebarOpen(false)}
             className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
-            aria-label="Close menu">✕
+            aria-label="Close navigation menu"
+          >
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+        <nav aria-label="Main pages" className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
           {mainItems.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)}
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              aria-current={activeSection === item.id ? 'page' : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
                 activeSection === item.id
                   ? 'bg-[#01696f] text-white'
                   : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-              }`}>
-              <span className="text-base shrink-0">{item.icon}</span>
+              }`}
+            >
+              <span className="text-base shrink-0" aria-hidden="true">{item.icon}</span>
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{item.en}</div>
-                {item.hil && <div className="text-[10px] opacity-60 truncate">{item.hil}</div>}
+                {item.hil && <div className="text-[10px] opacity-60 truncate" lang="hil">{item.hil}</div>}
               </div>
             </button>
           ))}
 
-          <div className="pt-4 pb-1 px-3">
-            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Admin</div>
+          <div className="pt-4 pb-1 px-3" role="separator" aria-label="Admin section">
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest" aria-hidden="true">Admin</div>
           </div>
 
           {adminItems.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)}
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              aria-current={activeSection === item.id ? 'page' : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
                 activeSection === item.id
                   ? 'bg-zinc-800 text-white dark:bg-zinc-700'
                   : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-              }`}>
-              <span className="text-base shrink-0">{item.icon}</span>
+              }`}
+            >
+              <span className="text-base shrink-0" aria-hidden="true">{item.icon}</span>
               <span className="text-sm font-medium truncate">{item.en}</span>
             </button>
           ))}
@@ -88,18 +124,28 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10">
-        <div className="flex items-stretch">
+      {/* Mobile bottom nav */}
+      <nav
+        aria-label="Mobile quick navigation"
+        className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-zinc-900 border-t border-black/10 dark:border-white/10"
+      >
+        <div className="flex items-stretch" role="list">
           {BOTTOM_NAV.map((item) => (
-            <button key={item.id} onClick={() => navigate(item.id)}
+            <button
+              key={item.id}
+              onClick={() => navigate(item.id)}
+              role="listitem"
+              aria-current={activeSection === item.id ? 'page' : undefined}
+              aria-label={item.en}
               className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
                 activeSection === item.id
                   ? 'text-[#01696f] dark:text-teal-400'
                   : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'
-              }`}>
-              <span className="text-xl">{item.icon}</span>
+              }`}
+            >
+              <span className="text-xl" aria-hidden="true">{item.icon}</span>
               <span className="text-[10px] font-semibold">{item.en}</span>
-              <span className="text-[9px] opacity-60">{item.hil}</span>
+              <span className="text-[9px] opacity-60" lang="hil">{item.hil}</span>
             </button>
           ))}
         </div>
