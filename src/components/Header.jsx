@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
-import sealImg from '/seal.jpg'
 
 export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
@@ -41,7 +40,7 @@ export default function Header({ user, onLogout }) {
 
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
         <img
-          src={sealImg}
+          src="/seal.jpg"
           alt="Iloilo City Government Seal"
           width={40}
           height={40}
