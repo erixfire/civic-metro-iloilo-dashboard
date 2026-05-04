@@ -33,6 +33,25 @@ const UA          = 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)'
 const TIMEOUT_MS  = 18_000   // global per-request cap
 const FEED_TIMEOUT = 10_000  // per-feed cap so one slow feed never starves others
 
+// ── Gambling / casino content blocklist ──────────────────────────────────────
+// Applied to ALL scrapers before saving/returning results.
+const GAMBLING_BLOCKLIST = /\b(casino|gambling|gambl(?:e|ing|er)|slot\s*machine|poker|baccarat|roulette|lotto(?!\s*result)|e-?sabong|sabong|cockfight|cockpit|PAGCOR|PCSO|sweepstake|jueteng|mahjong\s*den|illegal\s*numbers?\s*game|bet(?:ting|tor)|sportsbook|online\s*casino|casino\s*plus|casinoplus)\b/i
+
+/**
+ * Returns true if the item should be REMOVED (is gambling-related).
+ */
+function isGamblingNews(item) {
+  const text = `${item.title ?? ''} ${item.summary ?? ''}`
+  return GAMBLING_BLOCKLIST.test(text)
+}
+
+/**
+ * Filter an array of scraped items, removing gambling/casino content.
+ */
+function filterGambling(items) {
+  return items.filter(i => !isGamblingNews(i))
+}
+
 // ── RSSHub public instances (tried in order, first success wins) ─────────────
 const RSSHUB_INSTANCES = [
   'https://rsshub.app',
@@ -166,7 +185,9 @@ async function getCached(DB, source, limit = null) {
   }
   try {
     const { results: rows = [] } = await stmt.all()
-    return json({ source, count: rows.length, updatedAt: rows[0]?.scraped_at ?? null, items: rows })
+    // Apply gambling filter on read so old DB rows are also cleaned up in responses
+    const filtered = filterGambling(rows)
+    return json({ source, count: filtered.length, updatedAt: filtered[0]?.scraped_at ?? null, items: filtered })
   } catch (e) {
     return json({ error: 'DB read error: ' + e.message, items: [] }, 500)
   }
@@ -194,22 +215,24 @@ async function runScrape(env, source) {
     toRun.map(async (key) => {
       if (!scrapers[key]) { results[key] = { error: 'Unknown source' }; return }
       try {
-        const items = await scrapers[key]()
+        const raw   = await scrapers[key]()
+        const items = filterGambling(raw)  // ← filter gambling before saving
         const saved = (env.DB && items.length > 0) ? await upsertItems(env.DB, key, items) : 0
-        results[key] = { scraped: items.length, saved }
+        results[key] = { scraped: raw.length, filtered: raw.length - items.length, saved }
       } catch (e) {
         results[key] = { error: e.message }
       }
     })
   )
 
-  const totalScraped = Object.values(results).reduce((s, r) => s + (r.scraped ?? 0), 0)
-  const totalSaved   = Object.values(results).reduce((s, r) => s + (r.saved   ?? 0), 0)
+  const totalScraped  = Object.values(results).reduce((s, r) => s + (r.scraped   ?? 0), 0)
+  const totalFiltered = Object.values(results).reduce((s, r) => s + (r.filtered  ?? 0), 0)
+  const totalSaved    = Object.values(results).reduce((s, r) => s + (r.saved     ?? 0), 0)
 
   if (env.DB) await writeAudit(env.DB, 'scrape_run', 'scraped_news', null,
-    JSON.stringify({ source, totalScraped, totalSaved, results }))
+    JSON.stringify({ source, totalScraped, totalFiltered, totalSaved, results }))
 
-  return json({ ok: true, source, totalScraped, totalSaved, results })
+  return json({ ok: true, source, totalScraped, totalFiltered, totalSaved, results })
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
