@@ -5,7 +5,7 @@ const LEVEL_CONFIG = {
   'Extreme Danger':  { cls: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-400',    icon: '🚨', hil: 'Grabe nga Delikado — Indi gid lumabas!' },
   'Danger':          { cls: 'bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300',      icon: '🔴', hil: 'Delikado — Magpabilin sa sulod.' },
   'Extreme Caution': { cls: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 border-orange-300',           icon: '🟠', hil: 'Mag-halong gid! Mag-inom sang tubig.' },
-  'Caution':         { cls: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 border-yellow-300',           icon: '🟡', hil: 'Mag-inot. Indi magpainit kung dili kinahanglan.' },
+  'Caution':         { cls: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 border-yellow-300',           icon: '🟡', hil: 'Magin-ot, indi magpainit kung indi kinahanglan.' },
   'Normal':          { cls: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300', icon: '🟢', hil: 'Luwas ang kainit karon.' },
 }
 
