@@ -86,7 +86,7 @@ export default function HeatIndexCard() {
       {/* News */}
       {(news ?? []).length > 0 && (
         <div>
-          <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">📰 Latest News · Bag-ong Balita</div>
+          <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">📰 Latest News · Bag-o na Balita</div>
           <div className="space-y-2 max-h-[220px] overflow-y-auto pr-0.5">
             {news.map((n) => (
               <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer"
