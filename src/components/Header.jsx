@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
-import sealImg from '/Seal_of_Iloilo_City.jpg'
+
+// Official Iloilo City seal — served from Wikimedia Commons (permanent, high-res)
+const SEAL_SRC = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Seal_of_Iloilo_City.jpg/240px-Seal_of_Iloilo_City.jpg'
 
 export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
-  const [time, setTime] = useState(new Date())
+  const [time, setTime]     = useState(new Date())
+  const [sealOk, setSealOk] = useState(true)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -51,16 +54,27 @@ export default function Header({ user, onLogout }) {
       </button>
 
       {/* City seal + title */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <img
-          src={sealImg}
-          alt="Iloilo City Government Seal"
-          width={32}
-          height={32}
-          loading="eager"
-          decoding="async"
-          className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-black/10 dark:ring-white/15"
-        />
+      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        {sealOk ? (
+          <img
+            src={SEAL_SRC}
+            alt="Iloilo City Government Seal"
+            width={40}
+            height={40}
+            loading="eager"
+            decoding="async"
+            onError={() => setSealOk(false)}
+            className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#01696f]/30 dark:ring-[#4dc8cf]/30 shadow-sm"
+          />
+        ) : (
+          /* Inline SVG fallback if Wikimedia is unreachable */
+          <svg viewBox="0 0 40 40" width="40" height="40" className="w-10 h-10 shrink-0" aria-label="Iloilo City Government Seal">
+            <circle cx="20" cy="20" r="19" fill="#01696f" stroke="#0c4e54" strokeWidth="1.5"/>
+            <text x="20" y="17" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold" fontFamily="sans-serif">ILOILO</text>
+            <text x="20" y="26" textAnchor="middle" fontSize="6" fill="white" fontFamily="sans-serif">CITY</text>
+          </svg>
+        )}
+
         <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">
           iloilocity.app
         </span>
