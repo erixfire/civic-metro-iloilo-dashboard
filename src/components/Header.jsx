@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
-
-// Iloilo City Government official seal — hosted on the city gov website
-const SEAL_URL = 'https://iloilocity.gov.ph/wp-content/uploads/2021/07/iloilo-city-seal.png'
+import sealImg from '/Seal_of_Iloilo_City.jpg'
 
 export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
   const [time, setTime] = useState(new Date())
-  const [sealErr, setSealErr] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -55,34 +52,15 @@ export default function Header({ user, onLogout }) {
 
       {/* City seal + title */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Iloilo City Government seal */}
-        {!sealErr ? (
-          <img
-            src={SEAL_URL}
-            alt="Iloilo City Government seal"
-            width={32}
-            height={32}
-            loading="eager"
-            decoding="async"
-            onError={() => setSealErr(true)}
-            className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-black/10 dark:ring-white/10"
-          />
-        ) : (
-          /* SVG fallback if the remote image fails to load */
-          <svg
-            aria-label="Iloilo City Government seal"
-            viewBox="0 0 32 32"
-            width="32"
-            height="32"
-            className="w-8 h-8 shrink-0"
-            fill="none"
-          >
-            <circle cx="16" cy="16" r="15" fill="#01696f" stroke="#0c4e54" strokeWidth="1"/>
-            <text x="16" y="13" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" fontFamily="sans-serif">ILOILO</text>
-            <text x="16" y="21" textAnchor="middle" fontSize="5.5" fill="white" fontFamily="sans-serif">CITY</text>
-          </svg>
-        )}
-
+        <img
+          src={sealImg}
+          alt="Iloilo City Government Seal"
+          width={32}
+          height={32}
+          loading="eager"
+          decoding="async"
+          className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-black/10 dark:ring-white/15"
+        />
         <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">
           iloilocity.app
         </span>
