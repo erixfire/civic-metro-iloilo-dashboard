@@ -40,7 +40,7 @@ export default function Header({ user, onLogout }) {
 
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
         <img
-          src="/seal.jpg"
+          src="/seal.png"
           alt="Iloilo City Government Seal"
           width={40}
           height={40}
