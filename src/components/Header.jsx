@@ -47,9 +47,9 @@ export default function Header({ user, onLogout }) {
           height={40}
           className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
         />
-        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">iloilocity.app</span>
+        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">Bantay Iloilo</span>
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
-          iloilocity.app — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
+          Bantay Iloilo City App — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
         </span>
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0" aria-label="Live data">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" aria-hidden="true" />
