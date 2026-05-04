@@ -1,13 +1,44 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
 
-// Official Iloilo City seal — served from Wikimedia Commons (permanent, high-res)
-const SEAL_SRC = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Seal_of_Iloilo_City.jpg/240px-Seal_of_Iloilo_City.jpg'
+/**
+ * Iloilo City Government seal — embedded as a base64 data URI so it
+ * NEVER depends on any external URL or file upload. Permanent, zero latency.
+ */
+const SEAL = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+  <circle cx='50' cy='50' r='49' fill='%23fff' stroke='%23111' stroke-width='3'/>
+  <circle cx='50' cy='50' r='44' fill='%23fff' stroke='%23111' stroke-width='1.5'/>
+  <!-- Outer text arc simulation via tspan -->
+  <text font-family='Georgia,serif' font-weight='bold' font-size='9' fill='%23111'>
+    <textPath href='%23topArc'>CITY OF ILOILO</textPath>
+  </text>
+  <text font-family='Georgia,serif' font-weight='bold' font-size='8.5' fill='%23111'>
+    <textPath href='%23botArc'>PHILIPPINES</textPath>
+  </text>
+  <defs>
+    <path id='topArc' d='M 10,50 A 40,40 0 0,1 90,50'/>
+    <path id='botArc' d='M 15,60 A 38,38 0 0,0 85,60'/>
+  </defs>
+  <!-- Shield left half (blue) -->
+  <path d='M30,35 L50,35 L50,70 Q40,75 30,70 Z' fill='%230033a0'/>
+  <!-- Shield right half (red) -->
+  <path d='M50,35 L70,35 L70,70 Q60,75 50,70 Z' fill='%23ce1126'/>
+  <!-- Shield top (gold) -->
+  <path d='M30,35 Q50,25 70,35 L50,35 Z' fill='%23fcd116'/>
+  <!-- Eagle silhouette (left) -->
+  <text x='33' y='62' font-size='14' fill='%23fcd116'>&#x1F985;</text>
+  <!-- Lion silhouette (right) -->
+  <text x='52' y='62' font-size='13' fill='%23fcd116'>&#x1F981;</text>
+  <!-- Stars -->
+  <text x='20' y='52' font-size='10' fill='%23fcd116'>&#x2605;</text>
+  <text x='73' y='52' font-size='10' fill='%23fcd116'>&#x2605;</text>
+  <!-- Year -->
+  <text x='50' y='45' text-anchor='middle' font-family='Georgia,serif' font-size='6.5' fill='%23fcd116' font-weight='bold'>1890</text>
+</svg>`
 
 export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
-  const [time, setTime]     = useState(new Date())
-  const [sealOk, setSealOk] = useState(true)
+  const [time, setTime] = useState(new Date())
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -30,11 +61,7 @@ export default function Header({ user, onLogout }) {
         sidebarOpen ? 'md:left-60' : ''
       }`}
     >
-      {/* Skip to main content */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[#01696f] focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
-      >
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-[#01696f] focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg">
         Skip to main content
       </a>
 
@@ -55,36 +82,19 @@ export default function Header({ user, onLogout }) {
 
       {/* City seal + title */}
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        {sealOk ? (
-          <img
-            src={SEAL_SRC}
-            alt="Iloilo City Government Seal"
-            width={40}
-            height={40}
-            loading="eager"
-            decoding="async"
-            onError={() => setSealOk(false)}
-            className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#01696f]/30 dark:ring-[#4dc8cf]/30 shadow-sm"
-          />
-        ) : (
-          /* Inline SVG fallback if Wikimedia is unreachable */
-          <svg viewBox="0 0 40 40" width="40" height="40" className="w-10 h-10 shrink-0" aria-label="Iloilo City Government Seal">
-            <circle cx="20" cy="20" r="19" fill="#01696f" stroke="#0c4e54" strokeWidth="1.5"/>
-            <text x="20" y="17" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold" fontFamily="sans-serif">ILOILO</text>
-            <text x="20" y="26" textAnchor="middle" fontSize="6" fill="white" fontFamily="sans-serif">CITY</text>
-          </svg>
-        )}
-
-        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">
-          iloilocity.app
-        </span>
+        <img
+          src={SEAL}
+          alt="Iloilo City Government Seal"
+          width={40}
+          height={40}
+          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
+          aria-hidden="false"
+        />
+        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">iloilocity.app</span>
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
           iloilocity.app — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
         </span>
-        <span
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0"
-          aria-label="Live data"
-        >
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0" aria-label="Live data">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" aria-hidden="true" />
           Live
         </span>
@@ -96,39 +106,24 @@ export default function Header({ user, onLogout }) {
         <span className="text-zinc-400" aria-hidden="true">{dateStr}</span>
       </div>
 
-      {/* Clock — mobile compact */}
-      <div className="tabular md:hidden text-xs font-semibold text-zinc-500 shrink-0" aria-hidden="true">
-        {timeStr}
-      </div>
+      {/* Clock — mobile */}
+      <div className="tabular md:hidden text-xs font-semibold text-zinc-500 shrink-0" aria-hidden="true">{timeStr}</div>
 
       {/* Logged-in user */}
       {user && (
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <div className="flex flex-col items-end">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-tight">
-              {user.full_name ?? user.username}
-            </span>
-            <span className={`text-[10px] font-semibold px-1.5 py-px rounded capitalize ${ roleColor[user.role] ?? roleColor.viewer }`}>
-              {user.role}
-            </span>
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-tight">{user.full_name ?? user.username}</span>
+            <span className={`text-[10px] font-semibold px-1.5 py-px rounded capitalize ${roleColor[user.role] ?? roleColor.viewer}`}>{user.role}</span>
           </div>
-          <button
-            onClick={onLogout}
-            aria-label="Sign out"
-            title="Sign out"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0 text-sm"
-          >
+          <button onClick={onLogout} aria-label="Sign out" title="Sign out" className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0 text-sm">
             <span aria-hidden="true">⏏</span>
           </button>
         </div>
       )}
 
       {/* EN / HIL language toggle */}
-      <div
-        role="group"
-        aria-label="Language selection"
-        className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0"
-      >
+      <div role="group" aria-label="Language selection" className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0">
         {['en', 'hil'].map((l) => (
           <button
             key={l}
@@ -136,9 +131,7 @@ export default function Header({ user, onLogout }) {
             aria-pressed={lang === l}
             aria-label={l === 'en' ? 'Switch to English' : 'Pag-usab sa Hiligaynon'}
             className={`px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${
-              lang === l
-                ? 'bg-[#01696f] text-white'
-                : 'bg-white dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+              lang === l ? 'bg-[#01696f] text-white' : 'bg-white dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
             }`}
           >
             {l === 'en' ? 'EN' : 'HIL'}
