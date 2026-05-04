@@ -87,7 +87,8 @@ function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
       title,
       summary:  desc,
       url:      link || null,
-      pub_date: pubDate ? toIsoDate(pubDate) : isoDate(),
+      // FIX: store full ISO datetime so items from the same calendar day sort correctly
+      pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(),
       category: sourceKey,
       raw_data: null,
     })
@@ -124,17 +125,19 @@ async function getCached(DB, source) {
   // 'facebook' is a virtual source — maps to items across multiple source_keys
   const FB_KEYS = FB_PAGES.map(p => p.sourceKey)
   let stmt
+  // FIX: ORDER BY scraped_at DESC first so freshly-scraped items always surface
+  // regardless of what pub_date the RSS feed sent. pub_date is secondary tiebreak.
   if (source === 'all') {
-    stmt = DB.prepare(`SELECT * FROM scraped_news ORDER BY pub_date DESC, scraped_at DESC LIMIT 200`)
+    stmt = DB.prepare(`SELECT * FROM scraped_news ORDER BY scraped_at DESC, pub_date DESC LIMIT 200`)
   } else if (source === 'facebook') {
     const placeholders = FB_KEYS.map(() => '?').join(',')
     stmt = DB.prepare(
       `SELECT * FROM scraped_news WHERE source_key IN (${placeholders}) AND raw_data LIKE '%"fb":true%'
-       ORDER BY pub_date DESC, scraped_at DESC LIMIT 80`
+       ORDER BY scraped_at DESC, pub_date DESC LIMIT 80`
     ).bind(...FB_KEYS)
   } else {
     stmt = DB.prepare(
-      `SELECT * FROM scraped_news WHERE source_key = ? ORDER BY pub_date DESC, scraped_at DESC LIMIT 60`
+      `SELECT * FROM scraped_news WHERE source_key = ? ORDER BY scraped_at DESC, pub_date DESC LIMIT 60`
     ).bind(source)
   }
   try {
@@ -206,7 +209,7 @@ async function scrapeFuelDoe() {
         title:    `DOE Fuel Prices — Region VI (${todayPH()})`,
         summary:  `Gasoline: ₱${cells[1]}–${cells[2]}/L · Diesel: ₱${cells[3] ?? '?'}–${cells[4] ?? '?'}/L`,
         url:      'https://oilmonitor.doe.gov.ph/prices/weekly',
-        pub_date: isoDate(),
+        pub_date: isoDatetime(),
         category: 'fuel',
         raw_data: JSON.stringify(cells),
       })
@@ -215,7 +218,7 @@ async function scrapeFuelDoe() {
   }
   if (items.length === 0) {
     const h = html.match(/<h[12][^>]*>([^<]{10,120})<\/h[12]>/i)
-    if (h) items.push({ title: h[1].trim(), summary: 'DOE weekly fuel price bulletin', url: 'https://oilmonitor.doe.gov.ph/prices/weekly', pub_date: isoDate(), category: 'fuel', raw_data: null })
+    if (h) items.push({ title: h[1].trim(), summary: 'DOE weekly fuel price bulletin', url: 'https://oilmonitor.doe.gov.ph/prices/weekly', pub_date: isoDatetime(), category: 'fuel', raw_data: null })
   }
   return items
 }
@@ -327,7 +330,7 @@ async function scrapePagasaHeatIndex() {
           title:    `PAGASA Heat Index — Iloilo: ${best.value}°C (${best.level})`,
           summary:  heatRows.map(r => `${r.station}: ${r.value}°C — ${r.level}`).join(' | '),
           url:      'https://www.pagasa.dost.gov.ph/climate/heat-index',
-          pub_date: isoDate(),
+          pub_date: isoDatetime(),
           category: 'pagasa-heat-index',
           raw_data: JSON.stringify(heatRows),
         })
@@ -338,7 +341,7 @@ async function scrapePagasaHeatIndex() {
             title:    `PAGASA Heat Index Advisory — ${todayPH()}`,
             summary:  matches.slice(0, 3).map(m => m[0].trim()).join(' | '),
             url:      'https://www.pagasa.dost.gov.ph/climate/heat-index',
-            pub_date: isoDate(),
+            pub_date: isoDatetime(),
             category: 'pagasa-heat-index',
             raw_data: null,
           })
@@ -360,7 +363,7 @@ async function scrapePagasaHeatIndex() {
         title:    `PAGASA Daily Forecast — Western Visayas (${todayPH()})`,
         summary:  stripHtml(wvMatch[0]).slice(0, 250).trim(),
         url:      'https://www.pagasa.dost.gov.ph/weather#daily-weather-forecast',
-        pub_date: isoDate(),
+        pub_date: isoDatetime(),
         category: 'pagasa-weather',
         raw_data: null,
       })
@@ -634,7 +637,8 @@ async function parseRssFeedDouble(feedUrl, sourceKey, maxItems = 8, filterA, fil
     if (!title) continue
     if (filterA && !filterA.test(text)) continue
     if (filterB && !filterB.test(text)) continue
-    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDate(pubDate) : isoDate(), category: sourceKey, raw_data: null })
+    // FIX: store full ISO datetime
+    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
     count++
   }
   return items
@@ -645,7 +649,8 @@ async function parseRssFeedDouble(feedUrl, sourceKey, maxItems = 8, filterA, fil
 function scrapeWordPressArchive(html, sourceKey) {
   const items     = []
   const titleRe   = /<h[23][^>]*class="[^"]*entry-title[^"]*"[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi
-  const dateRe    = /<time[^>]*class="[^"]*entry-date[^"]*"[^>]*datetime="([^"T]+)/gi
+  // FIX: capture full datetime value (including time component after T)
+  const dateRe    = /<time[^>]*class="[^"]*entry-date[^"]*"[^>]*datetime="([^"]+)"/gi
   const excerptRe = /<div[^>]*class="[^"]*entry-(?:summary|content)[^"]*"[^>]*>\s*<p>([^<]{10,300})<\/p>/gi
   const titles    = [...html.matchAll(titleRe)]
   const dates     = [...html.matchAll(dateRe)]
@@ -654,7 +659,8 @@ function scrapeWordPressArchive(html, sourceKey) {
     title:    m[2].trim(),
     summary:  excerpts[i]?.[1]?.trim() ?? '',
     url:      m[1],
-    pub_date: dates[i]?.[1] ?? isoDate(),
+    // FIX: normalise captured WP datetime to full ISO datetime
+    pub_date: dates[i]?.[1] ? toIsoDatetime(dates[i][1]) : isoDatetime(),
     category: sourceKey,
     raw_data: null,
   }))
@@ -739,9 +745,12 @@ function classifyHeat(val) {
   return 'Normal'
 }
 
-function isoDate()      { return new Date().toISOString().slice(0, 10) }
-function todayPH()      { return new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) }
-function toIsoDate(str) { try { return new Date(str).toISOString().slice(0, 10) } catch { return isoDate() } }
+// FIX: store full ISO-8601 datetime (not just date) so ORDER BY works within a day
+function isoDatetime()      { return new Date().toISOString().replace('T', ' ').slice(0, 19) }
+function isoDate()          { return new Date().toISOString().slice(0, 10) }
+function todayPH()          { return new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) }
+function toIsoDatetime(str) { try { return new Date(str).toISOString().replace('T', ' ').slice(0, 19) } catch { return isoDatetime() } }
+function toIsoDate(str)     { try { return new Date(str).toISOString().slice(0, 10) } catch { return isoDate() } }
 
 function xmlTag(xml, tag)         { return xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))?.[1] ?? '' }
 function xmlAttr(xml, tag, attr)  { return xml.match(new RegExp(`<${tag}[^>]*${attr}="([^"]+)"`, 'i'))?.[1] ?? '' }
