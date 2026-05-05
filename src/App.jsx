@@ -15,6 +15,8 @@ import HeatIndexNewsCard from './components/HeatIndexNewsCard'
 import RainGaugeCard from './components/RainGaugeCard'
 import TideCard from './components/TideCard'
 import AirQualityCard from './components/AirQualityCard'
+import ForecastStrip from './components/ForecastStrip'
+import ForecastMini from './components/ForecastMini'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
@@ -69,20 +71,17 @@ export default function App() {
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
 
-        {/* ── Iloilo City Logo Banner ──────────────────────────────── */}
+        {/* ── Logo Banner ────────────────────────────────────────── */}
         <div className="w-full bg-white dark:bg-zinc-900 border-b border-black/5 dark:border-white/5 flex items-center justify-center py-3 px-4">
-          <img
-            src="/ilocitylogo.png"
-            alt="Iloilo City Government"
-            className="h-14 sm:h-16 md:h-20 w-auto object-contain select-none"
-            draggable={false}
-          />
+          <img src="/ilocitylogo.png" alt="Iloilo City Government"
+            className="h-14 sm:h-16 md:h-20 w-auto object-contain select-none" draggable={false} />
         </div>
 
         <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
 
           {isPublicSection && <NewsTickerBanner />}
 
+          {/* ── DASHBOARD ─────────────────────────────────────── */}
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
@@ -93,6 +92,8 @@ export default function App() {
                 </div>
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
+              {/* 5-day forecast mini strip */}
+              <div className="mb-3 sm:mb-4"><ForecastMini /></div>
               <div className="mb-3 sm:mb-4"><TrafficMap /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <FuelWatchCard /><TrafficCard /><EmergencyDirectory />
@@ -100,20 +101,27 @@ export default function App() {
             </>
           )}
 
+          {/* ── WEATHER ───────────────────────────────────────── */}
           {activeSection === 'weather' && (
             <>
-              <SectionTitle icon="🌤️" en="Weather, Tide & Heat" hil="Panahon, Tubig, kag Kainit" />
+              <SectionTitle icon="🌤️" en="Weather, Tide & Air Quality" hil="Panahon, Tubig, kag Kalidad sang Hangin" />
+              {/* Row 1: current weather + heat index + tide */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
+              {/* Row 2: AQI + Rain Gauge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <AirQualityCard /><RainGaugeCard />
               </div>
+              {/* Row 3: Full 5-day forecast strip */}
+              <div className="mb-3 sm:mb-4"><ForecastStrip /></div>
+              {/* Row 4: Advisory feed */}
               <div className="mb-3 sm:mb-4"><HeatIndexNewsCard /></div>
               <div className="mb-3 sm:mb-4"><FuelWatchCard /></div>
             </>
           )}
 
+          {/* ── INCIDENTS ─────────────────────────────────────── */}
           {activeSection === 'incidents' && (
             <>
               <SectionTitle icon="📌" en="Incident Reports" hil="Mga Insidente" />
