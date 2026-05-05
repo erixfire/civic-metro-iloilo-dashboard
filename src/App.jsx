@@ -14,6 +14,7 @@ import HeatIndexCard from './components/HeatIndexCard'
 import HeatIndexNewsCard from './components/HeatIndexNewsCard'
 import RainGaugeCard from './components/RainGaugeCard'
 import TideCard from './components/TideCard'
+import AirQualityCard from './components/AirQualityCard'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
@@ -88,13 +89,13 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <div className="flex flex-col gap-3 sm:gap-4">
                   <WeatherCard />
-                  <FuelWatchCard />
+                  <AirQualityCard />
                 </div>
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
               <div className="mb-3 sm:mb-4"><TrafficMap /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <TrafficCard /><EmergencyDirectory />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <FuelWatchCard /><TrafficCard /><EmergencyDirectory />
               </div>
             </>
           )}
@@ -105,10 +106,11 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
-              <div className="mb-3 sm:mb-4"><HeatIndexNewsCard /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <RainGaugeCard /><FuelWatchCard />
+                <AirQualityCard /><RainGaugeCard />
               </div>
+              <div className="mb-3 sm:mb-4"><HeatIndexNewsCard /></div>
+              <div className="mb-3 sm:mb-4"><FuelWatchCard /></div>
             </>
           )}
 
