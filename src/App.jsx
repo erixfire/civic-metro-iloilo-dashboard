@@ -17,6 +17,7 @@ import TideCard from './components/TideCard'
 import AirQualityCard from './components/AirQualityCard'
 import ForecastStrip from './components/ForecastStrip'
 import ForecastMini from './components/ForecastMini'
+import WeatherHistoryChart from './components/WeatherHistoryChart'
 import IncidentReportForm from './components/IncidentReportForm'
 import IncidentList from './components/IncidentList'
 import IncidentMap from './components/IncidentMap'
@@ -71,7 +72,6 @@ export default function App() {
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
 
-        {/* ── Logo Banner ────────────────────────────────────────── */}
         <div className="w-full bg-white dark:bg-zinc-900 border-b border-black/5 dark:border-white/5 flex items-center justify-center py-3 px-4">
           <img src="/ilocitylogo.png" alt="Iloilo City Government"
             className="h-14 sm:h-16 md:h-20 w-auto object-contain select-none" draggable={false} />
@@ -92,7 +92,6 @@ export default function App() {
                 </div>
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
-              {/* 5-day forecast mini strip */}
               <div className="mb-3 sm:mb-4"><ForecastMini /></div>
               <div className="mb-3 sm:mb-4"><TrafficMap /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -105,23 +104,19 @@ export default function App() {
           {activeSection === 'weather' && (
             <>
               <SectionTitle icon="🌤️" en="Weather, Tide & Air Quality" hil="Panahon, Tubig, kag Kalidad sang Hangin" />
-              {/* Row 1: current weather + heat index + tide */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
-              {/* Row 2: AQI + Rain Gauge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <AirQualityCard /><RainGaugeCard />
               </div>
-              {/* Row 3: Full 5-day forecast strip */}
               <div className="mb-3 sm:mb-4"><ForecastStrip /></div>
-              {/* Row 4: Advisory feed */}
+              <div className="mb-3 sm:mb-4"><WeatherHistoryChart /></div>
               <div className="mb-3 sm:mb-4"><HeatIndexNewsCard /></div>
               <div className="mb-3 sm:mb-4"><FuelWatchCard /></div>
             </>
           )}
 
-          {/* ── INCIDENTS ─────────────────────────────────────── */}
           {activeSection === 'incidents' && (
             <>
               <SectionTitle icon="📌" en="Incident Reports" hil="Mga Insidente" />
