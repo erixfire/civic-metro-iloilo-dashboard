@@ -184,17 +184,17 @@ export default function AdminPanel({ onNavigate, user, getToken, defaultTab }) {
         </>
       )}
 
-      {tab === 'incidents'     && <AdminSection title="📌 Incident Management"><AdminIncidents /></AdminSection>}
-      {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts /></AdminSection>}
-      {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites /></AdminSection>}
-      {tab === 'fuel'          && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync /></AdminSection>}
+      {tab === 'incidents'     && <AdminSection title="📌 Incident Management"><AdminIncidents getToken={getToken} /></AdminSection>}
+      {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts getToken={getToken} /></AdminSection>}
+      {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites getToken={getToken} /></AdminSection>}
+      {tab === 'fuel'          && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync getToken={getToken} /></AdminSection>}
       {tab === 'scraper'       && <AdminSection title="📡 News Scraper"><AdminScraperPanel getToken={getToken} /></AdminSection>}
-      {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage /></AdminSection>}
-      {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
-      {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications /></AdminSection>}
-      {tab === 'settings'      && role === 'admin' && <AdminSection title="⚙️ App Settings (D1)"><AdminSettings /></AdminSection>}
-      {tab === 'users'         && role === 'admin' && <AdminSection title="👥 User Management"><AdminUserManagement /></AdminSection>}
-      {tab === 'audit'         && role === 'admin' && <AdminSection title="📋 Audit Log"><AdminAuditLog /></AdminSection>}
+      {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage getToken={getToken} /></AdminSection>}
+      {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate getToken={getToken} onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
+      {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications getToken={getToken} /></AdminSection>}
+      {tab === 'settings'      && role === 'admin' && <AdminSection title="⚙️ App Settings (D1)"><AdminSettings getToken={getToken} /></AdminSection>}
+      {tab === 'users'         && role === 'admin' && <AdminSection title="👥 User Management"><AdminUserManagement getToken={getToken} /></AdminSection>}
+      {tab === 'audit'         && role === 'admin' && <AdminSection title="📋 Audit Log"><AdminAuditLog getToken={getToken} /></AdminSection>}
     </div>
   )
 }

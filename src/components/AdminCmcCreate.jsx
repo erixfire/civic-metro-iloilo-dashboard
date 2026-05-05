@@ -1,5 +1,7 @@
 /**
  * AdminCmcCreate — Create new CMC meeting + add action items inline
+ * Fix: Authorization header now passed on all POST requests via getToken prop.
+ * Mayor updated to Raisa P. Treñas.
  */
 import { useState } from 'react'
 import useCmcStore from '../store/useCmcStore'
@@ -9,23 +11,31 @@ const DEPARTMENTS = [
   'PIO','DILG','DASMO','MIWD','MORE Power','POSMO',
 ]
 
-export default function AdminCmcCreate({ onSuccess }) {
+const DEFAULT_VENUE   = 'CMO Conference Room, City Hall'
+const DEFAULT_PRESIDED = 'Mayor Raisa P. Treñas'
+
+export default function AdminCmcCreate({ onSuccess, getToken }) {
   const { fetchMeetings } = useCmcStore()
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
   const [error,  setError]  = useState('')
 
   const [form, setForm] = useState({
-    meeting_no:  '',
+    meeting_no:   '',
     scheduled_at: '',
-    venue: 'CMO Conference Room, City Hall',
-    presided_by: 'Mayor Jerry P. Treñas',
-    agendaItems: [''],
+    venue:        DEFAULT_VENUE,
+    presided_by:  DEFAULT_PRESIDED,
+    agendaItems:  [''],
   })
 
   const [actionItems, setActionItems] = useState([
     { task: '', assigned_to: 'CDRRMO', due_date: '' },
   ])
+
+  function authHeader() {
+    const t = getToken?.()
+    return t ? { Authorization: `Bearer ${t}` } : {}
+  }
 
   function setField(key, val) { setForm((f) => ({ ...f, [key]: val })) }
 
@@ -36,11 +46,8 @@ export default function AdminCmcCreate({ onSuccess }) {
       return { ...f, agendaItems: a }
     })
   }
-
-  function addAgenda()   { setForm((f) => ({ ...f, agendaItems: [...f.agendaItems, ''] })) }
-  function removeAgenda(i) {
-    setForm((f) => ({ ...f, agendaItems: f.agendaItems.filter((_, idx) => idx !== i) }))
-  }
+  function addAgenda()      { setForm((f) => ({ ...f, agendaItems: [...f.agendaItems, ''] })) }
+  function removeAgenda(i)  { setForm((f) => ({ ...f, agendaItems: f.agendaItems.filter((_, idx) => idx !== i) })) }
 
   function setAI(i, key, val) {
     setActionItems((items) => items.map((it, idx) => idx === i ? { ...it, [key]: val } : it))
@@ -54,12 +61,12 @@ export default function AdminCmcCreate({ onSuccess }) {
     if (!form.meeting_no || !form.scheduled_at) return setError('Meeting number and date/time are required.')
     setSaving(true)
     try {
-      // 1. Create meeting
+      // 1. Create meeting — with Authorization header
       const meetRes = await fetch('/api/cmc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({
-          type: 'meeting',
+          type:         'meeting',
           meeting_no:   parseInt(form.meeting_no),
           scheduled_at: form.scheduled_at,
           venue:        form.venue,
@@ -71,14 +78,14 @@ export default function AdminCmcCreate({ onSuccess }) {
       if (!meetData.ok) throw new Error(meetData.error ?? 'Meeting creation failed')
       const meetingId = meetData.id
 
-      // 2. Create action items
+      // 2. Create action items — with Authorization header
       const validAI = actionItems.filter((a) => a.task.trim())
       for (const ai of validAI) {
         await fetch('/api/cmc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader() },
           body: JSON.stringify({
-            type: 'action_item',
+            type:        'action_item',
             meeting_id:  meetingId,
             task:        ai.task,
             assigned_to: ai.assigned_to,
@@ -90,100 +97,206 @@ export default function AdminCmcCreate({ onSuccess }) {
       await fetchMeetings()
       setSaved(true)
       setTimeout(() => { setSaved(false); onSuccess?.(meetingId) }, 2000)
-    } catch (e) {
-      setError(e.message)
+    } catch (err) {
+      setError(err.message)
     } finally {
       setSaving(false)
     }
   }
 
+  function resetForm() {
+    setForm({ meeting_no: '', scheduled_at: '', venue: DEFAULT_VENUE, presided_by: DEFAULT_PRESIDED, agendaItems: [''] })
+    setActionItems([{ task: '', assigned_to: 'CDRRMO', due_date: '' }])
+    setError('')
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Meeting details */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="space-y-6">
+
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <label className="label">Meeting #</label>
-          <input type="number" min="1" required value={form.meeting_no}
-            onChange={(e) => setField('meeting_no', e.target.value)}
-            placeholder="6" className="input-field" />
+          <h3 className="text-base font-bold text-zinc-800 dark:text-zinc-100">🏛️ New CMC Meeting</h3>
+          <p className="text-xs text-zinc-400 mt-0.5">Crisis Management Committee · Iloilo City Government</p>
         </div>
-        <div className="sm:col-span-2">
-          <label className="label">Date & Time</label>
-          <input type="datetime-local" required value={form.scheduled_at}
-            onChange={(e) => setField('scheduled_at', e.target.value)}
-            className="input-field" />
-        </div>
-        <div>
-          <label className="label">Presided By</label>
-          <input value={form.presided_by} onChange={(e) => setField('presided_by', e.target.value)}
-            className="input-field" />
-        </div>
-        <div className="col-span-2 sm:col-span-4">
-          <label className="label">Venue</label>
-          <input value={form.venue} onChange={(e) => setField('venue', e.target.value)}
-            className="input-field" />
-        </div>
+        <button type="button" onClick={resetForm}
+          className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 transition-colors shrink-0">
+          ↺ Reset
+        </button>
       </div>
 
-      {/* Agenda */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="label mb-0">Agenda Items</label>
-          <button type="button" onClick={addAgenda}
-            className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ Add item</button>
-        </div>
-        <div className="space-y-1.5">
-          {form.agendaItems.map((item, i) => (
-            <div key={i} className="flex gap-2">
-              <span className="text-xs text-zinc-400 w-5 pt-2 shrink-0">{i + 1}.</span>
-              <input value={item} onChange={(e) => setAgenda(i, e.target.value)}
-                placeholder={`Agenda item ${i + 1}`} className="input-field" />
-              {form.agendaItems.length > 1 && (
-                <button type="button" onClick={() => removeAgenda(i)}
-                  className="text-zinc-400 hover:text-red-500 text-lg leading-none">×</button>
-              )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* ── Section 1: Meeting details ─────────────────────────────── */}
+        <fieldset className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-4">
+          <legend className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Meeting Details</legend>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Meeting # */}
+            <div>
+              <label className="label">Meeting #</label>
+              <input
+                type="number" min="1" required
+                value={form.meeting_no}
+                onChange={(e) => setField('meeting_no', e.target.value)}
+                placeholder="e.g. 6"
+                className="input-field"
+              />
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Action Items */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="label mb-0">Pre-load Action Items</label>
-          <button type="button" onClick={addAI}
-            className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ Add task</button>
-        </div>
-        <div className="space-y-2">
-          {actionItems.map((ai, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-start">
-              <div className="col-span-5">
-                <input value={ai.task} onChange={(e) => setAI(i, 'task', e.target.value)}
-                  placeholder="Task description" className="input-field" />
-              </div>
-              <div className="col-span-4">
-                <select value={ai.assigned_to} onChange={(e) => setAI(i, 'assigned_to', e.target.value)}
-                  className="input-field">
-                  {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <input type="date" value={ai.due_date} onChange={(e) => setAI(i, 'due_date', e.target.value)}
-                  className="input-field" />
-              </div>
-              <button type="button" onClick={() => removeAI(i)}
-                className="text-zinc-400 hover:text-red-500 text-xl leading-none pt-1">×</button>
+            {/* Date & Time */}
+            <div className="sm:col-span-2">
+              <label className="label">Date &amp; Time</label>
+              <input
+                type="datetime-local" required
+                value={form.scheduled_at}
+                onChange={(e) => setField('scheduled_at', e.target.value)}
+                className="input-field"
+              />
             </div>
-          ))}
+
+            {/* Presided By — pre-filled with current mayor */}
+            <div>
+              <label className="label">Presided By</label>
+              <input
+                value={form.presided_by}
+                onChange={(e) => setField('presided_by', e.target.value)}
+                className="input-field"
+              />
+            </div>
+
+            {/* Venue */}
+            <div className="col-span-2 sm:col-span-4">
+              <label className="label">Venue</label>
+              <input
+                value={form.venue}
+                onChange={(e) => setField('venue', e.target.value)}
+                className="input-field"
+              />
+            </div>
+          </div>
+        </fieldset>
+
+        {/* ── Section 2: Agenda ──────────────────────────────────────── */}
+        <fieldset className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-3">
+          <legend className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Agenda Items</legend>
+          <div className="space-y-2">
+            {form.agendaItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 w-5 shrink-0 text-right">{i + 1}.</span>
+                <input
+                  value={item}
+                  onChange={(e) => setAgenda(i, e.target.value)}
+                  placeholder={`Agenda item ${i + 1}`}
+                  className="input-field"
+                />
+                {form.agendaItems.length > 1 && (
+                  <button
+                    type="button" onClick={() => removeAgenda(i)}
+                    className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0 text-lg"
+                    aria-label={`Remove agenda item ${i + 1}`}
+                  >×</button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button" onClick={addAgenda}
+            className="text-xs text-[#01696f] hover:text-[#015459] font-semibold flex items-center gap-1 mt-1"
+          >
+            + Add agenda item
+          </button>
+        </fieldset>
+
+        {/* ── Section 3: Pre-load Action Items ───────────────────────── */}
+        <fieldset className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-3">
+          <legend className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">Pre-load Action Items <span className="normal-case font-normal">(optional)</span></legend>
+
+          <div className="space-y-2">
+            {actionItems.map((ai, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-start">
+                {/* Task */}
+                <div className="col-span-12 sm:col-span-5">
+                  {i === 0 && <div className="text-[10px] text-zinc-400 mb-1">Task</div>}
+                  <input
+                    value={ai.task}
+                    onChange={(e) => setAI(i, 'task', e.target.value)}
+                    placeholder="Task description"
+                    className="input-field"
+                  />
+                </div>
+                {/* Assigned to */}
+                <div className="col-span-7 sm:col-span-4">
+                  {i === 0 && <div className="text-[10px] text-zinc-400 mb-1">Assigned to</div>}
+                  <select
+                    value={ai.assigned_to}
+                    onChange={(e) => setAI(i, 'assigned_to', e.target.value)}
+                    className="input-field"
+                  >
+                    {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
+                  </select>
+                </div>
+                {/* Due date */}
+                <div className="col-span-4 sm:col-span-2">
+                  {i === 0 && <div className="text-[10px] text-zinc-400 mb-1">Due date</div>}
+                  <input
+                    type="date"
+                    value={ai.due_date}
+                    onChange={(e) => setAI(i, 'due_date', e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+                {/* Remove */}
+                <div className={`col-span-1 flex items-center ${i === 0 ? 'mt-5' : ''}`}>
+                  <button
+                    type="button" onClick={() => removeAI(i)}
+                    className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-lg"
+                    aria-label={`Remove action item ${i + 1}`}
+                  >×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button" onClick={addAI}
+            className="text-xs text-[#01696f] hover:text-[#015459] font-semibold flex items-center gap-1 mt-1"
+          >
+            + Add task
+          </button>
+        </fieldset>
+
+        {/* Errors / success */}
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+            <span>⚠️</span> {error}
+          </div>
+        )}
+        {saved && (
+          <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
+            <span>✅</span> Meeting created! Redirecting to CMC Board…
+          </div>
+        )}
+
+        {/* Submit */}
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={saving || saved}
+            className="btn-primary flex items-center gap-2 disabled:opacity-60"
+          >
+            {saving
+              ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Creating…</>
+              : '🏛️ Create CMC Meeting'
+            }
+          </button>
+          {!saving && !saved && (
+            <span className="text-[11px] text-zinc-400">
+              Fields marked with * are required
+            </span>
+          )}
         </div>
-      </div>
 
-      {error  && <div className="text-xs text-red-500">{error}</div>}
-      {saved  && <div className="text-xs text-green-600">✅ Meeting created successfully!</div>}
-
-      <button type="submit" disabled={saving} className="btn-primary">
-        {saving ? 'Creating meeting…' : '🏛️ Create CMC Meeting'}
-      </button>
-    </form>
+      </form>
+    </div>
   )
 }
