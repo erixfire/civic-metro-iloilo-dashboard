@@ -9,9 +9,9 @@
  *   Every 5 minutes  : PAGASA heat index + daily weather (live, time-sensitive)
  *   Every 30 minutes : All sources (news, MORE Power, CDRRMO, MCWD, energy)
  *
- * Expressions to enter in Dashboard UI:
- *   5min  cron  ->  slash5 every minute-hour-day-month-dow
- *   30min cron  ->  slash30 every minute-hour-day-month-dow
+ * Add these two expressions in the Dashboard Cron Triggers UI:
+ *   star-slash-5  star star star star   (every 5 min)
+ *   star-slash-30 star star star star   (every 30 min)
  */
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -30,17 +30,14 @@ export async function scheduled(event, env, ctx) {
     return
   }
 
-  // every-30-min or any other cron: run all
   ctx.waitUntil(runAllScrape(env, startedAt))
 }
 
-// -- PAGASA live scrape -------------------------------------------------------
 async function runPagasaScrape(env, startedAt) {
   if (!env.DB) { console.error('[Cron] No DB binding'); return }
   const today = isoDatePhT()
   const items = []
 
-  // 1. Heat index
   try {
     const resp = await fetchT('https://www.pagasa.dost.gov.ph/climate/heat-index')
     if (resp.ok) {
@@ -70,9 +67,8 @@ async function runPagasaScrape(env, startedAt) {
         await logHeatIndex(env.DB, today, best.station, +best.value, best.level)
       }
     }
-  } catch (e) { console.error('[Cron] PAGASA heat-index error:', e.message) }
+  } catch (e) { console.error('[Cron] heat-index error:', e.message) }
 
-  // 2. Daily weather forecast
   try {
     const resp = await fetchT('https://www.pagasa.dost.gov.ph/weather#daily-weather-forecast')
     if (resp.ok) {
@@ -88,20 +84,19 @@ async function runPagasaScrape(env, startedAt) {
         raw_data:   JSON.stringify({ cron: true }),
       })
     }
-  } catch (e) { console.error('[Cron] PAGASA weather error:', e.message) }
+  } catch (e) { console.error('[Cron] weather error:', e.message) }
 
   if (items.length > 0) {
     await upsert(env.DB, items)
     console.log('[Cron] PAGASA: saved ' + items.length + ' items at ' + isoPhT() + ' PHT')
   } else {
-    console.warn('[Cron] PAGASA: 0 items scraped - PAGASA site may be down or structure changed')
+    console.warn('[Cron] PAGASA: 0 items - site may be down or changed')
   }
 
   await writeAudit(env.DB, 'cron_pagasa', 'scraped_news', null,
-    JSON.stringify({ startedAt, items: items.length, today }))
+    JSON.stringify({ startedAt: startedAt, items: items.length, today: today }))
 }
 
-// -- Full all-source scrape ---------------------------------------------------
 async function runAllScrape(env, startedAt) {
   await runPagasaScrape(env, startedAt)
 
@@ -135,10 +130,9 @@ async function runAllScrape(env, startedAt) {
 
   console.log('[Cron] All: scraped ' + items.length + ', saved ' + clean.length + ' at ' + isoPhT() + ' PHT')
   await writeAudit(env.DB, 'cron_all', 'scraped_news', null,
-    JSON.stringify({ startedAt, scraped: items.length, saved: clean.length }))
+    JSON.stringify({ startedAt: startedAt, scraped: items.length, saved: clean.length }))
 }
 
-// -- D1 upsert ----------------------------------------------------------------
 async function upsert(DB, items) {
   const now = isoPhT()
   for (const item of items) {
@@ -147,19 +141,17 @@ async function upsert(DB, items) {
         'INSERT INTO scraped_news (source_key, title, summary, url, pub_date, category, raw_data, scraped_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ' +
         'ON CONFLICT(source_key, title) DO UPDATE SET ' +
-        '  summary    = excluded.summary, ' +
-        '  pub_date   = excluded.pub_date, ' +
-        '  raw_data   = excluded.raw_data, ' +
-        '  scraped_at = ?'
+        'summary = excluded.summary, pub_date = excluded.pub_date, ' +
+        'raw_data = excluded.raw_data, scraped_at = ?'
       ).bind(
-        item.source_key ?? item.category ?? 'pagasa',
-        item.title    ?? '',
-        item.summary  ?? null,
-        item.url      ?? null,
-        item.pub_date ?? now,
-        item.category ?? item.source_key ?? 'pagasa',
-        item.raw_data ?? null,
-        now, now,
+        item.source_key || item.category || 'pagasa',
+        item.title    || '',
+        item.summary  || null,
+        item.url      || null,
+        item.pub_date || now,
+        item.category || item.source_key || 'pagasa',
+        item.raw_data || null,
+        now, now
       ).run()
     } catch (_) {}
   }
@@ -169,25 +161,20 @@ async function logHeatIndex(DB, date, station, value, level) {
   try {
     await DB.prepare(
       'CREATE TABLE IF NOT EXISTS heat_index_log (' +
-      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
-      '  log_date TEXT NOT NULL,' +
-      '  area TEXT NOT NULL DEFAULT \'Iloilo City\',' +
-      '  heat_index_c REAL NOT NULL,' +
-      '  level TEXT, source TEXT, logged_by TEXT,' +
-      '  created_at TEXT DEFAULT (datetime(\'now\')), ' +
-      '  UNIQUE(log_date, area)' +
-      ')'
-    ).run().catch(() => {})
+      'id INTEGER PRIMARY KEY AUTOINCREMENT, log_date TEXT NOT NULL, ' +
+      'area TEXT NOT NULL DEFAULT \'Iloilo City\', heat_index_c REAL NOT NULL, ' +
+      'level TEXT, source TEXT, logged_by TEXT, ' +
+      'created_at TEXT DEFAULT (datetime(\'now\')), UNIQUE(log_date, area))'
+    ).run().catch(function() {})
 
     await DB.prepare(
       'INSERT INTO heat_index_log (log_date, area, heat_index_c, level, source) VALUES (?, ?, ?, ?, ?) ' +
       'ON CONFLICT(log_date, area) DO UPDATE SET ' +
-      '  heat_index_c = excluded.heat_index_c, level = excluded.level, source = excluded.source'
+      'heat_index_c = excluded.heat_index_c, level = excluded.level, source = excluded.source'
     ).bind(date, station || 'Iloilo City', value, level, 'PAGASA Auto-Cron').run()
-  } catch (e) { console.error('[Cron] heat_index_log write error:', e.message) }
+  } catch (e) { console.error('[Cron] heat_index_log error:', e.message) }
 }
 
-// -- Inline helpers -----------------------------------------------------------
 function parseRssXml(xml, sourceKey, max, filterRe) {
   const items  = []
   const itemRe = /<item[^>]*>(.*?)<\/item>/gis
@@ -197,39 +184,84 @@ function parseRssXml(xml, sourceKey, max, filterRe) {
     const title   = stripCdata(tag(b, 'title')).trim()
     const link    = stripCdata(tag(b, 'link')).trim()
     const pubDate = tag(b, 'pubDate').trim() || tag(b, 'dc:date').trim()
-    const desc    = stripHtml(stripCdata(tag(b, 'description') ?? '')).slice(0, 400).trim()
+    const desc    = stripHtml(stripCdata(tag(b, 'description') || '')).slice(0, 400).trim()
     if (!title) continue
     if (filterRe && !filterRe.test(title + ' ' + desc)) continue
-    items.push({ source_key: sourceKey, title, summary: desc, url: link || null,
-      pub_date: pubDate ? toIso(pubDate) : isoPhT(), category: sourceKey, raw_data: null })
+    items.push({
+      source_key: sourceKey, title: title, summary: desc,
+      url: link || null, pub_date: pubDate ? toIso(pubDate) : isoPhT(),
+      category: sourceKey, raw_data: null
+    })
   }
   return items
 }
 
-function tag(xml, t)      { return xml.match(new RegExp('<' + t + '[^>]*>([\\s\\S]*?)<\\/' + t + '>', 'i'))?.[1] ?? '' }
-function stripCdata(s)    { return (s ?? '').replace(/<![CDATA[(\s\S]*?)]]>/gi, (_, c) => c).trim() }
-function stripHtml(s)     { return (s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() }
-function classifyHeat(v)  { return v>=52?'Extreme Danger':v>=42?'Danger':v>=33?'Extreme Caution':v>=27?'Caution':'Normal' }
-function normalizeTitle(t){ return (t??'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,80) }
-function dedupeByTitle(items) {
-  const seen = new Set()
-  return items.filter(i => { const k=normalizeTitle(i.title); if(!k||seen.has(k)) return false; seen.add(k); return true })
+function tag(xml, t) {
+  const re = new RegExp('<' + t + '[^>]*>([\\s\\S]*?)<\\/' + t + '>', 'i')
+  const m  = xml.match(re)
+  return m ? m[1] : ''
 }
-const GAMBLING_RE = /\b(casino|gambling|gambl(?:e|ing)|slot\s*machine|poker|baccarat|bingo\s*plus|bingoplus|PAGCOR|e-?sabong|sabong|cockfight|sportsbook|Lucky\s*Cola|Okbet|Jilibet|Hawkplay|Lodibet|phlwin)\b/i
-function filterGambling(items) { return items.filter(i => !GAMBLING_RE.test((i.title ?? '') + ' ' + (i.summary ?? ''))) }
-function toIso(s) { try { return new Date(s).toISOString().replace('T',' ').slice(0,19) } catch { return isoPhT() } }
+
+function stripCdata(s) {
+  if (!s) return ''
+  // Split on CDATA open marker, extract inner content, remove close marker
+  var out = ''
+  var parts = s.split('<![CDATA[')
+  for (var i = 0; i < parts.length; i++) {
+    if (i === 0) { out += parts[i]; continue }
+    var close = parts[i].indexOf(']]>')
+    if (close >= 0) {
+      out += parts[i].slice(0, close) + parts[i].slice(close + 3)
+    } else {
+      out += parts[i]
+    }
+  }
+  return out.trim()
+}
+
+function stripHtml(s)    { return (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() }
+function classifyHeat(v) { return v>=52?'Extreme Danger':v>=42?'Danger':v>=33?'Extreme Caution':v>=27?'Caution':'Normal' }
+function normalizeTitle(t) { return (t||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,80) }
+
+function dedupeByTitle(items) {
+  var seen = new Set()
+  return items.filter(function(i) {
+    var k = normalizeTitle(i.title)
+    if (!k || seen.has(k)) return false
+    seen.add(k); return true
+  })
+}
+
+var GAMBLING_RE = /\b(casino|gambling|gambl(?:e|ing)|slot\s*machine|poker|baccarat|bingo\s*plus|bingoplus|PAGCOR|e-?sabong|sabong|cockfight|sportsbook|Lucky\s*Cola|Okbet|Jilibet|Hawkplay|Lodibet|phlwin)\b/i
+
+function filterGambling(items) {
+  return items.filter(function(i) {
+    return !GAMBLING_RE.test((i.title || '') + ' ' + (i.summary || ''))
+  })
+}
+
+function toIso(s) {
+  try { return new Date(s).toISOString().replace('T',' ').slice(0,19) }
+  catch(e) { return isoPhT() }
+}
 
 async function fetchT(url, ms) {
   ms = ms || 8000
-  const c = new AbortController()
-  const t = setTimeout(() => c.abort(), ms)
-  try { return await fetch(url, { signal: c.signal, headers: { 'User-Agent': 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)' } }) }
-  finally { clearTimeout(t) }
+  var c = new AbortController()
+  var t = setTimeout(function() { c.abort() }, ms)
+  try {
+    return await fetch(url, {
+      signal: c.signal,
+      headers: { 'User-Agent': 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)' }
+    })
+  } finally {
+    clearTimeout(t)
+  }
 }
 
 async function writeAudit(DB, action, table_name, record_id, details) {
   try {
     await DB.prepare('INSERT INTO audit_log (action, table_name, record_id, details) VALUES (?,?,?,?)')
-      .bind(action, table_name ?? '', record_id ? String(record_id) : null, details ?? null).run()
+      .bind(action, table_name || '', record_id ? String(record_id) : null, details || null).run()
   } catch (_) {}
 }
