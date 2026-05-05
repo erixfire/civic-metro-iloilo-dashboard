@@ -67,6 +67,17 @@ export default function App() {
       <main className={`pt-14 pb-20 md:pb-6 min-h-dvh transition-all duration-300 ${
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
+
+        {/* ── Iloilo City Logo Banner ──────────────────────────────── */}
+        <div className="w-full bg-white dark:bg-zinc-900 border-b border-black/5 dark:border-white/5 flex items-center justify-center py-3 px-4">
+          <img
+            src="/ilocitylogo.jpg"
+            alt="Iloilo City Government"
+            className="h-14 sm:h-16 md:h-20 w-auto object-contain select-none"
+            draggable={false}
+          />
+        </div>
+
         <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
 
           {isPublicSection && <NewsTickerBanner />}
