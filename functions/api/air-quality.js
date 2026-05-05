@@ -1,26 +1,23 @@
 /**
  * /api/air-quality
- * Primary:  WAQI geo endpoint (lat/lon) — more reliable than city slug
- * Fallback: OpenWeatherMap Air Pollution API
+ * Source: OpenWeatherMap Air Pollution API (lat/lon — always Iloilo City)
+ *
+ * WAQI was removed: it has no Iloilo station and snaps to the nearest
+ * monitoring station which resolves to Malaysia.
+ * OWM uses satellite + model interpolation at exact coordinates.
+ *
+ * Env vars: OPENWEATHER_API_KEY
  */
 
 const ILOILO_LAT = 10.7202
 const ILOILO_LON = 122.5621
 
 const AQI_LABELS = {
-  1: { label: 'Good',      color: '#22c55e', advice: 'Air quality is satisfactory.' },
-  2: { label: 'Fair',      color: '#86efac', advice: 'Acceptable air quality.' },
-  3: { label: 'Moderate',  color: '#facc15', advice: 'Sensitive groups may be affected.' },
-  4: { label: 'Poor',      color: '#f97316', advice: 'Everyone may experience health effects.' },
+  1: { label: 'Good',      color: '#22c55e', advice: 'Air quality is satisfactory — enjoy outdoor activities.' },
+  2: { label: 'Fair',      color: '#86efac', advice: 'Acceptable air quality for most people.' },
+  3: { label: 'Moderate',  color: '#facc15', advice: 'Sensitive individuals should limit prolonged outdoor exertion.' },
+  4: { label: 'Poor',      color: '#f97316', advice: 'Everyone may experience health effects. Reduce outdoor activity.' },
   5: { label: 'Very Poor', color: '#ef4444', advice: 'Health alert — avoid prolonged outdoor activity.' },
-}
-
-function waqiToScale(aqi) {
-  if (aqi <= 50)  return 1
-  if (aqi <= 100) return 2
-  if (aqi <= 150) return 3
-  if (aqi <= 200) return 4
-  return 5
 }
 
 const CORS = {
@@ -32,120 +29,78 @@ const CORS = {
 export async function onRequestGet({ env, request }) {
   const url   = new URL(request.url)
   const debug = url.searchParams.get('debug') === '1'
-  const errors = []
 
   if (debug) {
     return new Response(JSON.stringify({
-      WAQI_TOKEN_set:          !!env.WAQI_TOKEN,
       OPENWEATHER_API_KEY_set: !!env.OPENWEATHER_API_KEY,
+      lat: ILOILO_LAT,
+      lon: ILOILO_LON,
+      note: 'WAQI removed — OWM used exclusively (exact lat/lon, no station snap)',
+    }), { headers: CORS })
+  }
+
+  if (!env.OPENWEATHER_API_KEY) {
+    return new Response(JSON.stringify({
+      source: 'static', station: 'Iloilo City',
+      aqi: null, scale: null, label: 'Unavailable', color: '#a1a1aa',
+      advice: 'Air quality data temporarily unavailable.',
+      components: {}, updatedAt: new Date().toISOString(),
+      isFallback: true, error: 'OPENWEATHER_API_KEY not configured.',
     }), { headers: CORS })
   }
 
   try {
-    // ── 1. WAQI via geo lat/lon (more reliable than city slug) ──────
-    if (env.WAQI_TOKEN) {
-      try {
-        const waqiUrl = `https://api.waqi.info/feed/geo:${ILOILO_LAT};${ILOILO_LON}/?token=${env.WAQI_TOKEN}`
-        const waqiRes = await fetch(waqiUrl, {
-          headers: { 'User-Agent': 'BantayIloiloCity/1.0' },
-        })
-        const waqiData = await waqiRes.json()
-        if (waqiData.status === 'ok') {
-          const d     = waqiData.data
-          const aqi   = d.aqi
-          const scale = waqiToScale(aqi)
-          const meta  = AQI_LABELS[scale]
-          return new Response(JSON.stringify({
-            source:   'WAQI',
-            station:  d.city?.name ?? 'Iloilo City',
-            aqi,
-            scale,
-            label:    meta.label,
-            color:    meta.color,
-            advice:   meta.advice,
-            components: {
-              pm25: d.iaqi?.pm25?.v ?? null,
-              pm10: d.iaqi?.pm10?.v ?? null,
-              o3:   d.iaqi?.o3?.v   ?? null,
-              no2:  d.iaqi?.no2?.v  ?? null,
-              so2:  d.iaqi?.so2?.v  ?? null,
-              co:   d.iaqi?.co?.v   ?? null,
-            },
-            updatedAt:  d.time?.iso ?? new Date().toISOString(),
-            isFallback: false,
-          }), { headers: CORS })
-        } else {
-          errors.push(`WAQI status: ${waqiData.status} — ${JSON.stringify(waqiData.data)}`)
-        }
-      } catch (e) {
-        errors.push(`WAQI fetch error: ${e.message}`)
-      }
+    const owmUrl = `https://api.openweathermap.org/data/2.5/air_pollution` +
+      `?lat=${ILOILO_LAT}&lon=${ILOILO_LON}&appid=${env.OPENWEATHER_API_KEY}`
+
+    const owmRes = await fetch(owmUrl, {
+      headers: { 'User-Agent': 'BantayIloiloCity/1.0' },
+    })
+
+    if (!owmRes.ok) {
+      const errText = await owmRes.text()
+      throw new Error(`OWM HTTP ${owmRes.status}: ${errText.slice(0, 200)}`)
     }
 
-    // ── 2. OpenWeatherMap fallback ─────────────────────────────
-    if (env.OPENWEATHER_API_KEY) {
-      try {
-        const owmUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${ILOILO_LAT}&lon=${ILOILO_LON}&appid=${env.OPENWEATHER_API_KEY}`
-        const owmRes = await fetch(owmUrl, {
-          headers: { 'User-Agent': 'BantayIloiloCity/1.0' },
-        })
-        if (owmRes.ok) {
-          const owmData = await owmRes.json()
-          const item    = owmData.list?.[0]
-          if (item) {
-            const scale = item.main.aqi
-            const meta  = AQI_LABELS[scale] ?? AQI_LABELS[3]
-            const c     = item.components
-            return new Response(JSON.stringify({
-              source:   'OpenWeatherMap',
-              station:  'Iloilo City (lat/lon)',
-              aqi:      scale * 50,
-              scale,
-              label:    meta.label,
-              color:    meta.color,
-              advice:   meta.advice,
-              components: {
-                pm25: c.pm2_5 ?? null,
-                pm10: c.pm10  ?? null,
-                o3:   c.o3    ?? null,
-                no2:  c.no2   ?? null,
-                so2:  c.so2   ?? null,
-                co:   c.co    ?? null,
-              },
-              updatedAt:  new Date(item.dt * 1000).toISOString(),
-              isFallback: false,
-            }), { headers: CORS })
-          } else {
-            errors.push('OWM: empty list')
-          }
-        } else {
-          const errText = await owmRes.text()
-          errors.push(`OWM HTTP ${owmRes.status}: ${errText.slice(0, 200)}`)
-        }
-      } catch (e) {
-        errors.push(`OWM fetch error: ${e.message}`)
-      }
-    }
+    const owmData = await owmRes.json()
+    const item    = owmData.list?.[0]
 
-    // ── 3. Static fallback with diagnostic errors ────────────────
+    if (!item) throw new Error('OWM returned empty list')
+
+    const scale = item.main.aqi          // 1–5 European AQI scale
+    const meta  = AQI_LABELS[scale] ?? AQI_LABELS[3]
+    const c     = item.components
+
+    // Convert OWM 1-5 scale to approximate US AQI for display
+    const AQI_MAP = { 1: 25, 2: 75, 3: 125, 4: 175, 5: 250 }
+
     return new Response(JSON.stringify({
-      source:     'static',
-      station:    'Iloilo City',
-      aqi:        null,
-      scale:      null,
-      label:      'Unavailable',
-      color:      '#a1a1aa',
-      advice:     'Air quality data temporarily unavailable.',
-      components: {},
-      updatedAt:  new Date().toISOString(),
-      isFallback: true,
-      errors,
+      source:   'OpenWeatherMap',
+      station:  'Iloilo City (10.7202°N, 122.5621°E)',
+      aqi:      AQI_MAP[scale] ?? scale * 50,
+      scale,
+      label:    meta.label,
+      color:    meta.color,
+      advice:   meta.advice,
+      components: {
+        pm25: c.pm2_5 ?? null,
+        pm10: c.pm10  ?? null,
+        o3:   c.o3    ?? null,
+        no2:  c.no2   ?? null,
+        so2:  c.so2   ?? null,
+        co:   c.co    ?? null,
+      },
+      updatedAt:  new Date(item.dt * 1000).toISOString(),
+      isFallback: false,
     }), { headers: CORS })
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message, isFallback: true, errors }), {
-      status: 500,
-      headers: CORS,
-    })
+    return new Response(JSON.stringify({
+      source: 'static', station: 'Iloilo City',
+      aqi: null, scale: null, label: 'Unavailable', color: '#a1a1aa',
+      advice: 'Air quality data temporarily unavailable.',
+      components: {}, updatedAt: new Date().toISOString(),
+      isFallback: true, error: err.message,
+    }), { headers: CORS })
   }
 }
