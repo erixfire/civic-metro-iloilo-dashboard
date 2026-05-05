@@ -71,7 +71,7 @@ export default function App() {
         {/* ── Iloilo City Logo Banner ──────────────────────────────── */}
         <div className="w-full bg-white dark:bg-zinc-900 border-b border-black/5 dark:border-white/5 flex items-center justify-center py-3 px-4">
           <img
-            src="/ilocitylogo.jpg"
+            src="/ilocitylogo.png"
             alt="Iloilo City Government"
             className="h-14 sm:h-16 md:h-20 w-auto object-contain select-none"
             draggable={false}
@@ -85,15 +85,11 @@ export default function App() {
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
-              {/* Mobile: single col stack. sm: Weather+Fuel side by side. lg: 3-col grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                {/* Left column: Weather stacked over Fuel */}
                 <div className="flex flex-col gap-3 sm:gap-4">
                   <WeatherCard />
-                  {/* On mobile Fuel is full-width below Weather; on sm+ it stays in the column */}
                   <FuelWatchCard />
                 </div>
-                {/* Heat Index spans remaining 2 cols on lg */}
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
               <div className="mb-3 sm:mb-4"><TrafficMap /></div>
