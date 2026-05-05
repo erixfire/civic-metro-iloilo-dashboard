@@ -12,15 +12,24 @@ database_name = "civic-iloilo-db"
 database_id   = "f5c2e5d9-d5c7-45a9-acd5-f1e2d296bbba"
 
 # ---- Cron Triggers ---------------------------------------------------------
-# Fuel price auto-sync: every Tuesday at 00:00 UTC = 08:00 PHT
-# Cloudflare Pages does NOT support cron triggers natively.
-# Deploy sync worker separately:
-#   wrangler deploy functions/api/fuel-prices/sync.js --name civic-fuel-cron
-# Then add cron in Cloudflare Dashboard:
-#   Workers & Pages → civic-fuel-cron → Triggers → Add Cron Trigger: 0 0 * * 2
+# Handled by functions/scheduled.js (Cloudflare Pages Functions scheduled export)
+#
+# */5  * * * *  = Every 5 minutes  — PAGASA heat index + daily weather
+# */30 * * * *  = Every 30 minutes — All sources (news, CDRRMO, MORE, MCWD, energy)
+#
+# Cron triggers for Pages must be added in the Cloudflare Dashboard:
+#   Workers & Pages → civic-metro-iloilo-dashboard
+#   → Settings → Functions → Cron Triggers → Add Cron Trigger
+#   Add: */5 * * * *
+#   Add: */30 * * * *
+#
+# For standalone Worker deployment, uncomment:
+# [triggers]
+# crons = ["*/5 * * * *", "*/30 * * * *"]
 
 # ---- Environment variables (set in Cloudflare Pages dashboard) -------------
 # JWT_SECRET            = <long random string>
+# SCRAPE_SECRET         = <long random string for scraper auth>
 # VAPID_PUBLIC_KEY      = <from npx web-push generate-vapid-keys>  (optional)
 # VAPID_PRIVATE_KEY     = <from npx web-push generate-vapid-keys>  (optional)
 # VAPID_SUBJECT         = mailto:it@iloilocity.gov.ph               (optional)
