@@ -1,17 +1,19 @@
 /**
  * /api/cmc
- * GET  ?type=meetings                  — list all
- * GET  ?type=meeting&id=cmc-005        — single + items + updates
- * POST { type:'meeting', ...fields }   — create new meeting        [requires admin token]
- * POST { type:'action_item', ...}      — create action item        [requires operator or admin token]
- * POST { type:'dept_update', ...}      — submit dept update        [requires operator or admin token]
- * PATCH { type:'meeting', id, status } — update meeting status     [requires admin token]
- * PATCH { type:'action_item', id, status } — update action item    [requires operator or admin token]
+ * GET    ?type=meetings                   — list all
+ * GET    ?type=meeting&id=cmc-005         — single + items + updates
+ * POST   { type:'meeting', ...fields }    — create new meeting         [admin]
+ * POST   { type:'action_item', ...}       — create action item         [operator|admin]
+ * POST   { type:'dept_update', ...}       — submit dept update         [operator|admin]
+ * PATCH  { type:'meeting', id, status }   — update meeting status      [admin]
+ * PATCH  { type:'action_item', id, status } — update action item       [operator|admin]
+ * PUT    { type:'meeting', id, ...fields} — edit all meeting fields    [admin]
+ * DELETE ?type=meeting&id=cmc-005         — delete meeting + cascade   [admin]
  */
 
 const CORS = {
   'Access-Control-Allow-Origin':  'https://iloilocity.app',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type':                 'application/json',
 }
@@ -36,6 +38,10 @@ async function requireAuth(request, env, allowedRoles = ['admin', 'operator']) {
     if (!allowedRoles.includes(payload.role)) return null
     return payload
   } catch { return null }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS })
 }
 
 export async function onRequestGet({ request, env }) {
@@ -99,7 +105,7 @@ export async function onRequestPost({ request, env }) {
         title       ?? `CMC Meeting #${meeting_no}`,
         scheduled_at,
         venue       ?? 'CMO Conference Room',
-        presided_by ?? 'Mayor Jerry P. Treñas',
+        presided_by ?? 'Mayor Raisa P. Treñas',
         agenda      ? JSON.stringify(agenda) : null
       ).run()
       await writeAudit(env.DB, 'cmc_meeting_created', 'cmc_meetings', id, JSON.stringify({ meeting_no, scheduled_at }))
@@ -155,6 +161,94 @@ export async function onRequestPatch({ request, env }) {
       return Response.json({ ok: true }, { headers: H })
     }
     return Response.json({ error: 'Invalid patch' }, { status: 400, headers: H })
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500, headers: H })
+  }
+}
+
+// ── PUT — full edit of a meeting's fields [admin] ──────────────────
+export async function onRequestPut({ request, env }) {
+  const caller = await requireAuth(request, env, ['admin'])
+  if (!caller) return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS })
+
+  const H    = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://iloilocity.app' }
+  const body = await request.json()
+
+  try {
+    if (body.type === 'meeting' && body.id) {
+      const { id, title, scheduled_at, venue, presided_by, agenda, notes, status } = body
+
+      // Fetch existing so we only overwrite provided fields
+      const existing = await env.DB.prepare(`SELECT * FROM cmc_meetings WHERE id = ?`).bind(id).first()
+      if (!existing) return Response.json({ error: 'Meeting not found' }, { status: 404, headers: H })
+
+      await env.DB.prepare(`
+        UPDATE cmc_meetings
+        SET
+          title        = ?,
+          scheduled_at = ?,
+          venue        = ?,
+          presided_by  = ?,
+          agenda       = ?,
+          notes        = ?,
+          status       = ?,
+          updated_at   = datetime('now')
+        WHERE id = ?
+      `).bind(
+        title        ?? existing.title,
+        scheduled_at ?? existing.scheduled_at,
+        venue        ?? existing.venue,
+        presided_by  ?? existing.presided_by,
+        agenda       !== undefined ? JSON.stringify(agenda) : existing.agenda,
+        notes        !== undefined ? notes : existing.notes,
+        status       ?? existing.status,
+        id
+      ).run()
+
+      await writeAudit(env.DB, 'cmc_meeting_edited', 'cmc_meetings', id,
+        JSON.stringify({ edited_by: caller.username, fields: Object.keys(body).filter(k => k !== 'type' && k !== 'id') }))
+
+      return Response.json({ ok: true }, { headers: H })
+    }
+
+    return Response.json({ error: 'Invalid type or missing id' }, { status: 400, headers: H })
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500, headers: H })
+  }
+}
+
+// ── DELETE — remove meeting + cascade [admin] ──────────────────────
+export async function onRequestDelete({ request, env }) {
+  const caller = await requireAuth(request, env, ['admin'])
+  if (!caller) return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS })
+
+  const H   = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://iloilocity.app' }
+  const url = new URL(request.url)
+  const type = url.searchParams.get('type')
+  const id   = url.searchParams.get('id')
+
+  try {
+    if (type === 'meeting' && id) {
+      const existing = await env.DB.prepare(`SELECT id FROM cmc_meetings WHERE id = ?`).bind(id).first()
+      if (!existing) return Response.json({ error: 'Meeting not found' }, { status: 404, headers: H })
+
+      // CASCADE on FK handles action_items + dept_updates automatically
+      await env.DB.prepare(`DELETE FROM cmc_meetings WHERE id = ?`).bind(id).run()
+
+      await writeAudit(env.DB, 'cmc_meeting_deleted', 'cmc_meetings', id,
+        JSON.stringify({ deleted_by: caller.username }))
+
+      return Response.json({ ok: true }, { headers: H })
+    }
+
+    if (type === 'action_item' && id) {
+      await env.DB.prepare(`DELETE FROM cmc_action_items WHERE id = ?`).bind(id).run()
+      await writeAudit(env.DB, 'cmc_action_item_deleted', 'cmc_action_items', id,
+        JSON.stringify({ deleted_by: caller.username }))
+      return Response.json({ ok: true }, { headers: H })
+    }
+
+    return Response.json({ error: 'Invalid type or missing id' }, { status: 400, headers: H })
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500, headers: H })
   }
