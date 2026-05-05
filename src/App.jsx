@@ -21,8 +21,6 @@ import NewsPage from './components/NewsPage'
 import NewsTickerBanner from './components/NewsTickerBanner'
 import AdminPanel from './components/AdminPanel'
 import AdminLoginPage from './components/AdminLoginPage'
-// KitchenFeedingCard — admin-only
-// CmcBoard — admin-only
 
 function usePwaDeepLink() {
   const setActiveSection = useStore((s) => s.setActiveSection)
@@ -56,7 +54,6 @@ export default function App() {
     if (adminOnly.includes(activeSection) && !user) setActiveSection('admin')
   }, [activeSection, user, setActiveSection])
 
-  // NewsTickerBanner is only shown on public sections (not admin)
   const isPublicSection = !['admin', 'cmc', 'community-kitchen'].includes(activeSection)
 
   return (
@@ -70,23 +67,26 @@ export default function App() {
       <main className={`pt-14 pb-20 md:pb-6 min-h-dvh transition-all duration-300 ${
         sidebarOpen ? 'md:pl-60' : 'pl-0'
       }`}>
-        <div className="px-3 py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
+        <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 max-w-screen-2xl mx-auto">
 
-          {/* Global urgent news ticker — shown on all public sections */}
           {isPublicSection && <NewsTickerBanner />}
 
           {activeSection === 'dashboard' && (
             <>
               <KpiBar />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                <div className="flex flex-col gap-4">
+              {/* Mobile: single col stack. sm: Weather+Fuel side by side. lg: 3-col grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                {/* Left column: Weather stacked over Fuel */}
+                <div className="flex flex-col gap-3 sm:gap-4">
                   <WeatherCard />
+                  {/* On mobile Fuel is full-width below Weather; on sm+ it stays in the column */}
                   <FuelWatchCard />
                 </div>
+                {/* Heat Index spans remaining 2 cols on lg */}
                 <div className="lg:col-span-2"><HeatIndexCard /></div>
               </div>
-              <div className="mb-4"><TrafficMap /></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              <div className="mb-3 sm:mb-4"><TrafficMap /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <TrafficCard /><EmergencyDirectory />
               </div>
             </>
@@ -95,11 +95,11 @@ export default function App() {
           {activeSection === 'weather' && (
             <>
               <SectionTitle icon="🌤️" en="Weather, Tide & Heat" hil="Panahon, Tubig, kag Kainit" />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <WeatherCard /><HeatIndexCard /><TideCard />
               </div>
-              <div className="mb-4"><HeatIndexNewsCard /></div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              <div className="mb-3 sm:mb-4"><HeatIndexNewsCard /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <RainGaugeCard /><FuelWatchCard />
               </div>
             </>
@@ -108,8 +108,8 @@ export default function App() {
           {activeSection === 'incidents' && (
             <>
               <SectionTitle icon="📌" en="Incident Reports" hil="Mga Insidente" />
-              <div className="mb-4"><IncidentMap /></div>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+              <div className="mb-3 sm:mb-4"><IncidentMap /></div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <IncidentReportForm /><IncidentList />
               </div>
             </>
@@ -118,7 +118,7 @@ export default function App() {
           {activeSection === 'traffic' && (
             <>
               <SectionTitle icon="🚦" en="Traffic & Transport" hil="Trapiko" />
-              <div className="mb-4"><TrafficMap /></div>
+              <div className="mb-3 sm:mb-4"><TrafficMap /></div>
               <TrafficCard />
             </>
           )}
@@ -173,9 +173,9 @@ export default function App() {
 
 function SectionTitle({ icon, en, hil }) {
   return (
-    <div className="mb-4">
-      <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">{icon} {en}</h1>
-      {hil && <p className="text-xs text-zinc-400 mt-0.5">{hil}</p>}
+    <div className="mb-3 sm:mb-4">
+      <h1 className="text-base sm:text-lg font-bold text-zinc-800 dark:text-zinc-100">{icon} {en}</h1>
+      {hil && <p className="text-[10px] sm:text-xs text-zinc-400 mt-0.5">{hil}</p>}
     </div>
   )
 }
