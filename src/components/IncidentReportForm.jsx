@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import useIncidentStore from '../store/useIncidentStore'
+import useGeolocation from '../hooks/useGeolocation'
+
+const LocationPickerMini = lazy(() => import('./LocationPickerMini'))
 
 const INCIDENT_TYPES = [
   { value: 'flood',     label: '💧 Flood / Rising Water' },
@@ -35,21 +38,60 @@ const DISTRICTS = Object.keys(DISTRICT_CENTROIDS)
 
 export default function IncidentReportForm({ onSubmitted }) {
   const addIncident = useIncidentStore((s) => s.addIncident)
+
   const [form, setForm] = useState({
-    type:        '',
-    severity:    'moderate',
-    district:    '',
-    address:     '',
-    description: '',
-    reporter:    '',
+    type:           '',
+    severity:       'moderate',
+    district:       '',
+    address:        '',
+    description:    '',
+    reporter:       '',
+    lat:            null,
+    lng:            null,
+    locationSource: 'district', // 'district' | 'gps' | 'manual'
   })
+
   const [submitted,   setSubmitted]   = useState(false)
   const [submittedId, setSubmittedId] = useState(null)
   const [error,       setError]       = useState('')
   const [submitting,  setSubmitting]  = useState(false)
+  const [showMap,     setShowMap]     = useState(false)
+
+  const { coords, status: geoStatus, error: geoError, request: requestGeo, reset: resetGeo } = useGeolocation()
+
+  // When GPS succeeds, apply coords to form
+  useEffect(() => {
+    if (geoStatus === 'success' && coords) {
+      setForm((f) => ({
+        ...f,
+        lat:            coords.lat,
+        lng:            coords.lng,
+        locationSource: 'gps',
+      }))
+      setShowMap(true)
+    }
+  }, [geoStatus, coords])
+
+  // When district changes and no GPS/manual pin set, apply centroid
+  useEffect(() => {
+    if (form.locationSource === 'district' && form.district) {
+      const c = DISTRICT_CENTROIDS[form.district] ?? DISTRICT_CENTROIDS['Other']
+      setForm((f) => ({ ...f, lat: c.lat, lng: c.lng }))
+    }
+  }, [form.district, form.locationSource])
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  function handleMapChange(lat, lng) {
+    setForm((f) => ({ ...f, lat, lng, locationSource: 'manual' }))
+  }
+
+  function handleClearLocation() {
+    resetGeo()
+    setForm((f) => ({ ...f, lat: null, lng: null, locationSource: 'district' }))
+    setShowMap(false)
   }
 
   async function handleSubmit(e) {
@@ -60,8 +102,16 @@ export default function IncidentReportForm({ onSubmitted }) {
     setError('')
     setSubmitting(true)
 
+    // Priority: GPS/manual pin → district centroid fallback
     const centroid = DISTRICT_CENTROIDS[form.district] ?? DISTRICT_CENTROIDS['Other']
-    const result   = await addIncident({ ...form, lat: centroid.lat, lng: centroid.lng })
+    const finalLat = form.lat ?? centroid.lat
+    const finalLng = form.lng ?? centroid.lng
+
+    const result = await addIncident({
+      ...form,
+      lat: finalLat,
+      lng: finalLng,
+    })
     setSubmittedId(result?.id ?? null)
     setSubmitting(false)
     setSubmitted(true)
@@ -69,7 +119,12 @@ export default function IncidentReportForm({ onSubmitted }) {
     setTimeout(() => {
       setSubmitted(false)
       setSubmittedId(null)
-      setForm({ type: '', severity: 'moderate', district: '', address: '', description: '', reporter: '' })
+      setForm({
+        type: '', severity: 'moderate', district: '', address: '',
+        description: '', reporter: '', lat: null, lng: null, locationSource: 'district',
+      })
+      setShowMap(false)
+      resetGeo()
       onSubmitted?.()
     }, 4000)
   }
@@ -175,6 +230,119 @@ export default function IncidentReportForm({ onSubmitted }) {
               onChange={(e) => set('address', e.target.value)}
             />
           </div>
+        </div>
+
+        {/* ── Location Section ── */}
+        <div className="rounded-lg border border-black/10 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">📍 Pin Location</span>
+            {form.locationSource !== 'district' && (
+              <button
+                type="button"
+                onClick={handleClearLocation}
+                className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+              >
+                ✕ Reset to district
+              </button>
+            )}
+          </div>
+
+          {/* GPS Button */}
+          <button
+            type="button"
+            onClick={requestGeo}
+            disabled={geoStatus === 'loading'}
+            className="w-full text-xs py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-60 transition-colors font-medium"
+          >
+            {geoStatus === 'loading' ? '📡 Getting your location…' : '📍 Use My Current Location (GPS)'}
+          </button>
+
+          {/* Manual lat/lng override */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1" htmlFor="incident-lat">Latitude</label>
+              <input
+                id="incident-lat"
+                type="number"
+                step="0.00001"
+                placeholder="10.6965"
+                value={form.lat ?? ''}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value)
+                  if (!isNaN(v)) {
+                    setForm((f) => ({ ...f, lat: v, locationSource: 'manual' }))
+                    setShowMap(true)
+                  }
+                }}
+                className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1" htmlFor="incident-lng">Longitude</label>
+              <input
+                id="incident-lng"
+                type="number"
+                step="0.00001"
+                placeholder="122.5654"
+                value={form.lng ?? ''}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value)
+                  if (!isNaN(v)) {
+                    setForm((f) => ({ ...f, lng: v, locationSource: 'manual' }))
+                    setShowMap(true)
+                  }
+                }}
+                className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-600"
+              />
+            </div>
+          </div>
+
+          {/* Status feedback */}
+          {geoStatus === 'success' && form.locationSource === 'gps' && (
+            <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+              ✅ GPS location captured
+              <span className="font-mono text-green-500 dark:text-green-500">
+                ({coords?.lat?.toFixed(5)}, {coords?.lng?.toFixed(5)})
+              </span>
+              {coords?.accuracy && (
+                <span className="text-zinc-400">±{Math.round(coords.accuracy)}m</span>
+              )}
+            </div>
+          )}
+          {form.locationSource === 'manual' && form.lat && form.lng && (
+            <div className="text-xs text-blue-500 dark:text-blue-400">
+              📌 Manual pin: ({form.lat?.toFixed(5)}, {form.lng?.toFixed(5)})
+            </div>
+          )}
+          {form.locationSource === 'district' && form.district && (
+            <div className="text-xs text-zinc-400">
+              🏘️ Using district centroid for {form.district}
+            </div>
+          )}
+          {geoError && (
+            <div className="text-xs text-red-500" role="alert">⚠️ {geoError}</div>
+          )}
+
+          {/* Toggle mini map */}
+          <button
+            type="button"
+            onClick={() => setShowMap((v) => !v)}
+            className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline transition-colors"
+          >
+            {showMap ? '▲ Hide map' : '▼ Show map to fine-tune pin'}
+          </button>
+
+          {/* Mini Map */}
+          {showMap && (
+            <Suspense fallback={<div className="h-36 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs text-zinc-400">Loading map…</div>}>
+              <LocationPickerMini
+                lat={form.lat}
+                lng={form.lng}
+                onChange={handleMapChange}
+              />
+              <p className="text-xs text-zinc-400 text-center">Click on the map or drag the pin to adjust location</p>
+            </Suspense>
+          )}
         </div>
 
         {/* Description */}
