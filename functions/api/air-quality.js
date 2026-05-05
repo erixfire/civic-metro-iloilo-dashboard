@@ -1,16 +1,11 @@
 /**
  * /api/air-quality
- * Primary:  WAQI (World Air Quality Index) — Iloilo City station
- * Fallback: OpenWeatherMap Air Pollution API (lat/lon for Iloilo City)
- *
- * Env vars (Cloudflare Pages Secrets):
- *   WAQI_TOKEN          — https://aqicn.org/data-platform/token/
- *   OPENWEATHER_API_KEY — https://openweathermap.org/api
+ * Primary:  WAQI geo endpoint (lat/lon) — more reliable than city slug
+ * Fallback: OpenWeatherMap Air Pollution API
  */
 
 const ILOILO_LAT = 10.7202
 const ILOILO_LON = 122.5621
-const WAQI_CITY  = 'iloilo'
 
 const AQI_LABELS = {
   1: { label: 'Good',      color: '#22c55e', advice: 'Air quality is satisfactory.' },
@@ -31,15 +26,14 @@ function waqiToScale(aqi) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Content-Type': 'application/json',
-  // Short cache — 5 min — so new deploys/keys take effect quickly
   'Cache-Control': 'public, max-age=300, s-maxage=300',
 }
 
 export async function onRequestGet({ env, request }) {
-  const url    = new URL(request.url)
-  const debug  = url.searchParams.get('debug') === '1'
+  const url   = new URL(request.url)
+  const debug = url.searchParams.get('debug') === '1'
+  const errors = []
 
-  // Debug endpoint: confirm env keys are visible (values hidden)
   if (debug) {
     return new Response(JSON.stringify({
       WAQI_TOKEN_set:          !!env.WAQI_TOKEN,
@@ -48,13 +42,13 @@ export async function onRequestGet({ env, request }) {
   }
 
   try {
-    // ── 1. WAQI ─────────────────────────────────────────────────
+    // ── 1. WAQI via geo lat/lon (more reliable than city slug) ──────
     if (env.WAQI_TOKEN) {
-      const waqiRes = await fetch(
-        `https://api.waqi.info/feed/${WAQI_CITY}/?token=${env.WAQI_TOKEN}`,
-        { headers: { 'User-Agent': 'BantayIloiloCity/1.0' } }
-      )
-      if (waqiRes.ok) {
+      try {
+        const waqiUrl = `https://api.waqi.info/feed/geo:${ILOILO_LAT};${ILOILO_LON}/?token=${env.WAQI_TOKEN}`
+        const waqiRes = await fetch(waqiUrl, {
+          headers: { 'User-Agent': 'BantayIloiloCity/1.0' },
+        })
         const waqiData = await waqiRes.json()
         if (waqiData.status === 'ok') {
           const d     = waqiData.data
@@ -80,47 +74,60 @@ export async function onRequestGet({ env, request }) {
             updatedAt:  d.time?.iso ?? new Date().toISOString(),
             isFallback: false,
           }), { headers: CORS })
+        } else {
+          errors.push(`WAQI status: ${waqiData.status} — ${JSON.stringify(waqiData.data)}`)
         }
+      } catch (e) {
+        errors.push(`WAQI fetch error: ${e.message}`)
       }
     }
 
-    // ── 2. OpenWeatherMap fallback ──────────────────────────────
+    // ── 2. OpenWeatherMap fallback ─────────────────────────────
     if (env.OPENWEATHER_API_KEY) {
-      const owmRes = await fetch(
-        `https://api.openweathermap.org/data/2.5/air_pollution?lat=${ILOILO_LAT}&lon=${ILOILO_LON}&appid=${env.OPENWEATHER_API_KEY}`,
-        { headers: { 'User-Agent': 'BantayIloiloCity/1.0' } }
-      )
-      if (owmRes.ok) {
-        const owmData = await owmRes.json()
-        const item    = owmData.list?.[0]
-        if (item) {
-          const scale = item.main.aqi
-          const meta  = AQI_LABELS[scale] ?? AQI_LABELS[3]
-          const c     = item.components
-          return new Response(JSON.stringify({
-            source:   'OpenWeatherMap',
-            station:  'Iloilo City (lat/lon)',
-            aqi:      scale * 50,
-            scale,
-            label:    meta.label,
-            color:    meta.color,
-            advice:   meta.advice,
-            components: {
-              pm25: c.pm2_5 ?? null,
-              pm10: c.pm10  ?? null,
-              o3:   c.o3    ?? null,
-              no2:  c.no2   ?? null,
-              so2:  c.so2   ?? null,
-              co:   c.co    ?? null,
-            },
-            updatedAt:  new Date(item.dt * 1000).toISOString(),
-            isFallback: false,
-          }), { headers: CORS })
+      try {
+        const owmUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${ILOILO_LAT}&lon=${ILOILO_LON}&appid=${env.OPENWEATHER_API_KEY}`
+        const owmRes = await fetch(owmUrl, {
+          headers: { 'User-Agent': 'BantayIloiloCity/1.0' },
+        })
+        if (owmRes.ok) {
+          const owmData = await owmRes.json()
+          const item    = owmData.list?.[0]
+          if (item) {
+            const scale = item.main.aqi
+            const meta  = AQI_LABELS[scale] ?? AQI_LABELS[3]
+            const c     = item.components
+            return new Response(JSON.stringify({
+              source:   'OpenWeatherMap',
+              station:  'Iloilo City (lat/lon)',
+              aqi:      scale * 50,
+              scale,
+              label:    meta.label,
+              color:    meta.color,
+              advice:   meta.advice,
+              components: {
+                pm25: c.pm2_5 ?? null,
+                pm10: c.pm10  ?? null,
+                o3:   c.o3    ?? null,
+                no2:  c.no2   ?? null,
+                so2:  c.so2   ?? null,
+                co:   c.co    ?? null,
+              },
+              updatedAt:  new Date(item.dt * 1000).toISOString(),
+              isFallback: false,
+            }), { headers: CORS })
+          } else {
+            errors.push('OWM: empty list')
+          }
+        } else {
+          const errText = await owmRes.text()
+          errors.push(`OWM HTTP ${owmRes.status}: ${errText.slice(0, 200)}`)
         }
+      } catch (e) {
+        errors.push(`OWM fetch error: ${e.message}`)
       }
     }
 
-    // ── 3. Static fallback ───────────────────────────────────────
+    // ── 3. Static fallback with diagnostic errors ────────────────
     return new Response(JSON.stringify({
       source:     'static',
       station:    'Iloilo City',
@@ -132,11 +139,11 @@ export async function onRequestGet({ env, request }) {
       components: {},
       updatedAt:  new Date().toISOString(),
       isFallback: true,
-      error:      'Keys not found or upstream API failed.',
+      errors,
     }), { headers: CORS })
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message, isFallback: true }), {
+    return new Response(JSON.stringify({ error: err.message, isFallback: true, errors }), {
       status: 500,
       headers: CORS,
     })
