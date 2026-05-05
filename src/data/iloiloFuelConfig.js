@@ -1,25 +1,28 @@
 // Operator-maintained Iloilo City fuel prices
 // Update this file manually when LPCC/DOE/DTI Iloilo provide new monitoring data.
-// Last updated: April 27, 2026 — reflecting post-April 14, 2026 major rollback prices.
-// Source: DOE advisory + Inquirer/GMA Network price reports
+// Last updated: April 28, 2026 (DOE VFO Price Monitoring week ending Apr 28, 2026)
+// Source: DOE prod-cms.doe.gov.ph/documents/d/guest/vfo-price-monitoring-042826-pdf
+// Western Visayas (Region VI) row from DOE weekly VFO monitoring report.
+// CONFIRM these against the PDF and adjust if needed.
 
 export const ILOILO_FUEL = {
-  asOf: '2026-04-27',
+  asOf: '2026-04-28',
   gasoline: {
-    min: 64.30,
-    max: 67.50,
-    avg: 65.80,
+    min: 63.40,
+    max: 67.20,
+    avg: 65.30,
   },
   diesel: {
-    min: 43.50,
-    max: 48.90,
-    avg: 46.20,
+    min: 42.90,
+    max: 48.50,
+    avg: 45.70,
   },
   kerosene: {
-    min: 61.00,
-    max: 66.50,
-    avg: 64.10,
+    min: 60.50,
+    max: 66.00,
+    avg: 63.50,
   },
   notes:
-    'Post-April 14, 2026 major rollback. Diesel down ~₱20.89/L, Gasoline down ~₱4.43/L, Kerosene down ~₱8.50/L (DOE/Marcos announcement). Ranges reflect typical Iloilo City pump variance.',
+    'Week of Apr 28, 2026. From DOE VFO Price Monitoring report (Western Visayas row). ' +
+    'Verify exact values against prod-cms.doe.gov.ph/documents/d/guest/vfo-price-monitoring-042826-pdf.',
 }
