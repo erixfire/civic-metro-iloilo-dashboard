@@ -1,7 +1,10 @@
 /**
  * useFuelPrices — fetches latest fuel prices from /api/fuel-prices (D1)
- * API returns: { asOf, source, iloilo: { gasoline, diesel, kerosene }, philippines: { gasoline, diesel } }
- * Falls back to iloiloFuelConfig static values if D1 is empty or API fails.
+ * API shape: { asOf, source, iloilo: { gasoline, diesel, kerosene }, philippines: { gasoline, diesel } }
+ *
+ * If D1 is empty (404) or all values are null, automatically seeds D1 with
+ * the static iloiloFuelConfig values so future GETs return real data.
+ * Falls back to static config for display in the meantime.
  */
 import { useState, useEffect, useCallback } from 'react'
 import { ILOILO_FUEL } from '../data/iloiloFuelConfig'
@@ -21,6 +24,36 @@ const FALLBACK = () => ({
   phDiesel:   null,
 })
 
+/** Seed D1 with static config prices so the card shows real data immediately */
+async function seedD1() {
+  try {
+    const f = ILOILO_FUEL
+    await fetch('/api/fuel-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        as_of:               f.asOf ?? new Date().toISOString().split('T')[0],
+        iloilo_gasoline_avg: f.gasoline?.avg  ?? null,
+        iloilo_gasoline_min: f.gasoline?.min  ?? null,
+        iloilo_gasoline_max: f.gasoline?.max  ?? null,
+        iloilo_diesel_avg:   f.diesel?.avg    ?? null,
+        iloilo_diesel_min:   f.diesel?.min    ?? null,
+        iloilo_diesel_max:   f.diesel?.max    ?? null,
+        iloilo_kerosene_avg: f.kerosene?.avg  ?? null,
+        iloilo_kerosene_min: f.kerosene?.min  ?? null,
+        iloilo_kerosene_max: f.kerosene?.max  ?? null,
+        ph_gasoline_avg:     null,
+        ph_diesel_avg:       null,
+        source:              'LPCC · Static Seed',
+        logged_by:           'auto-seed',
+      }),
+    })
+    console.log('[useFuelPrices] D1 seeded from static iloiloFuelConfig')
+  } catch (e) {
+    console.warn('[useFuelPrices] D1 seed failed:', e)
+  }
+}
+
 export function useFuelPrices() {
   const [prices,      setPrices]      = useState(null)
   const [loading,     setLoading]     = useState(true)
@@ -32,9 +65,11 @@ export function useFuelPrices() {
     try {
       const r = await fetch('/api/fuel-prices')
 
-      // 404 = table empty, anything else is an error
       if (r.status === 404) {
-        setPrices(FALLBACK()); setFromD1(false)
+        // D1 table is empty — seed it and show static fallback
+        seedD1()
+        setPrices(FALLBACK())
+        setFromD1(false)
         setLastFetched(Date.now())
         return
       }
@@ -42,7 +77,6 @@ export function useFuelPrices() {
 
       const d = await r.json()
 
-      // API shape: { asOf, source, iloilo: { gasoline:{avg,min,max}, diesel, kerosene }, philippines: { gasoline, diesel } }
       const iloilo = d.iloilo ?? {}
       const ph     = d.philippines ?? {}
 
@@ -54,9 +88,11 @@ export function useFuelPrices() {
       const dieselAvg   = safeNum(die.avg)
       const keroseneAvg = safeNum(ker.avg)
 
-      // If all three are null the row exists but has no numbers — use static
+      // All nulls means row exists but sync hasn't written prices yet — seed and use static
       if (gasolineAvg === null && dieselAvg === null && keroseneAvg === null) {
-        setPrices(FALLBACK()); setFromD1(false)
+        seedD1()
+        setPrices(FALLBACK())
+        setFromD1(false)
       } else {
         setPrices({
           asOf:    d.asOf ?? ILOILO_FUEL.asOf,
@@ -86,7 +122,9 @@ export function useFuelPrices() {
       setPrices(FALLBACK())
       setFromD1(false)
       setLastFetched(Date.now())
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {

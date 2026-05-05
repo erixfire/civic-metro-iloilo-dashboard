@@ -1,6 +1,10 @@
 /**
  * TrafficMap — Waze embed + Leaflet City Ops map.
  * Mobile-optimised, ARIA tablist, i18n-aware.
+ *
+ * Waze iframe is lazy: rendered only when the Waze tab is selected.
+ * This eliminates the TrustedScriptURL / TrustedHTML CSP noise and the
+ * LivemapConfig 400 error that appear on dashboard load.
  */
 import { MapContainer, TileLayer, CircleMarker, Popup, Marker, useMap } from 'react-leaflet'
 import { useEffect, useState } from 'react'
@@ -21,7 +25,10 @@ const TYPE_ICON_MAP = { flood:'💧', fire:'🔥', traffic:'🚦', medical:'🚑
 function makeIncidentIcon(type, severity) {
   const emoji = TYPE_ICON_MAP[type] ?? 'ℹ️'
   const bg = severity === 'high' ? '#fca5a5' : severity === 'moderate' ? '#fde68a' : '#bbf7d0'
-  return L.divIcon({ html: `<div style="background:${bg};border:2px solid rgba(0,0,0,.25);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;">${emoji}</div>`, className:'', iconSize:[32,32], iconAnchor:[16,16] })
+  return L.divIcon({
+    html: `<div style="background:${bg};border:2px solid rgba(0,0,0,.25);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;">${emoji}</div>`,
+    className: '', iconSize: [32,32], iconAnchor: [16,16]
+  })
 }
 
 function InvalidateSizeOnMount() {
@@ -32,17 +39,40 @@ function InvalidateSizeOnMount() {
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 640
 
-function WazeTab({ t }) {
+/**
+ * WazeTab — iframe rendered only when active (wazeLoaded=true).
+ * Prevents Trusted Types / LivemapConfig 400 errors on dashboard load.
+ * The `allow` attribute grants geolocation so Waze can show location-aware
+ * traffic without needing user/visitor_id params.
+ */
+function WazeTab({ t, active }) {
+  const [wazeLoaded, setWazeLoaded] = useState(false)
+
+  useEffect(() => {
+    if (active && !wazeLoaded) setWazeLoaded(true)
+  }, [active, wazeLoaded])
+
   return (
     <div className="relative">
-      <iframe
-        src="https://embed.waze.com/iframe?zoom=13&lat=10.7202&lon=122.5621&ct=livemap&pin=0"
-        width="100%"
-        className="w-full block h-[260px] sm:h-[420px]"
-        frameBorder="0" allowFullScreen loading="lazy"
-        title={t('Waze Live Traffic map for Iloilo City', 'Mapa sang Live Traffic sa Iloilo City')}
-      />
-      <div className="absolute bottom-2 right-2 bg-white/80 dark:bg-zinc-900/80 text-[10px] text-zinc-500 px-2 py-1 rounded-md backdrop-blur-sm" aria-hidden="true">
+      {wazeLoaded ? (
+        <iframe
+          src="https://embed.waze.com/iframe?zoom=13&lat=10.7202&lon=122.5621&ct=livemap&pin=0"
+          width="100%"
+          className="w-full block h-[260px] sm:h-[420px]"
+          frameBorder="0"
+          allowFullScreen
+          allow="geolocation"
+          title={t('Waze Live Traffic map for Iloilo City', 'Mapa sang Live Traffic sa Iloilo City')}
+        />
+      ) : (
+        <div className="w-full h-[260px] sm:h-[420px] flex items-center justify-center bg-zinc-50 dark:bg-zinc-800 text-zinc-400 text-sm">
+          <span>Loading Waze map…</span>
+        </div>
+      )}
+      <div
+        className="absolute bottom-2 right-2 bg-white/80 dark:bg-zinc-900/80 text-[10px] text-zinc-500 px-2 py-1 rounded-md backdrop-blur-sm"
+        aria-hidden="true"
+      >
         Powered by Waze
       </div>
     </div>
@@ -52,12 +82,20 @@ function WazeTab({ t }) {
 function CityOpsTab({ incidents, t }) {
   const mobile    = isMobile()
   const mapHeight = mobile ? '260px' : '420px'
-  const tileUrl   = mobile ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  const tileAttr  = mobile ? '&copy; <a href="https://carto.com">CARTO</a> &copy; <a href="https://openstreetmap.org">OSM</a>' : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  const tileUrl   = mobile
+    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  const tileAttr  = mobile
+    ? '&copy; <a href="https://carto.com">CARTO</a> &copy; <a href="https://openstreetmap.org">OSM</a>'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
   return (
     <div role="region" aria-label={t('City operations map', 'Mapa sang Operasyon sang Siyudad')}>
-      <MapContainer center={ILOILO_CENTER} zoom={mobile ? 12 : 13} style={{ height: mapHeight, width: '100%' }} scrollWheelZoom={false} tap={false}>
+      <MapContainer
+        center={ILOILO_CENTER} zoom={mobile ? 12 : 13}
+        style={{ height: mapHeight, width: '100%' }}
+        scrollWheelZoom={false} tap={false}
+      >
         <InvalidateSizeOnMount />
         <TileLayer url={tileUrl} attribution={tileAttr} detectRetina={false} />
         {TRAFFIC_POINTS.map((pt) => (
@@ -79,7 +117,7 @@ function CityOpsTab({ incidents, t }) {
               <div className="text-sm">
                 <div className="font-semibold mb-1">💧 {g.name}</div>
                 <div className="text-xs text-gray-600">{t('Level', 'Antas')}: <span className="font-medium">{g.level}</span></div>
-                {g.rainfall1h != null && <div className="text-xs text-gray-500">{g.rainfall1h} mm/hr</div>}
+                {g.rainfall1h != null && <div className="text-xs text-gray-500">{g.rainfall1h} mm/hr</div>}
               </div>
             </Popup>
           </CircleMarker>
@@ -104,8 +142,8 @@ function CityOpsTab({ incidents, t }) {
 }
 
 const TABS = [
-  { id: 'waze',    en: '🚦 Waze Live',   hil: '🚦 Waze Live' },
-  { id: 'cityops', en: '🗺️ City Ops',    hil: '🗺️ Operasyon' },
+  { id: 'waze',    en: '🚦 Waze Live',  hil: '🚦 Waze Live' },
+  { id: 'cityops', en: '🗺️ City Ops',   hil: '🗺️ Operasyon' },
 ]
 
 export default function TrafficMap() {
@@ -124,8 +162,11 @@ export default function TrafficMap() {
             {t('Iloilo City · Live', 'Iloilo City · Live')}
           </p>
         </div>
-        <div role="tablist" aria-label={t('Map view', 'Talan-awon sang Mapa')}
-          className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0">
+        <div
+          role="tablist"
+          aria-label={t('Map view', 'Talan-awon sang Mapa')}
+          className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0"
+        >
           {TABS.map((tab) => (
             <button key={tab.id} role="tab"
               id={`tab-${tab.id}`}
@@ -145,14 +186,17 @@ export default function TrafficMap() {
       </div>
 
       <div id="tabpanel-waze" role="tabpanel" aria-labelledby="tab-waze" hidden={activeTab !== 'waze'}>
-        <WazeTab t={t} />
+        <WazeTab t={t} active={activeTab === 'waze'} />
       </div>
       <div id="tabpanel-cityops" role="tabpanel" aria-labelledby="tab-cityops" hidden={activeTab !== 'cityops'}>
         <CityOpsTab incidents={incidents} t={t} />
       </div>
 
       {activeTab === 'cityops' && (
-        <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap gap-3 text-[11px] text-zinc-400" aria-label={t('Map legend', 'Tanda sa Mapa')}>
+        <div
+          className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap gap-3 text-[11px] text-zinc-400"
+          aria-label={t('Map legend', 'Tanda sa Mapa')}
+        >
           <span>🔴 {t('Heavy', 'Mabug-at')}</span>
           <span>🟡 {t('Moderate', 'Kasagaran')}</span>
           <span>🟢 {t('Clear', 'Luwas')}</span>
