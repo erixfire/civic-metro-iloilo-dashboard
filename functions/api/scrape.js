@@ -2,24 +2,9 @@
  * GET  /api/scrape?source=all|fuel|more|mcwd|pagasa|cdrrmo|energy|traffic|news|facebook
  * GET  /api/scrape?source=news&limit=40   (optional limit param, default 60)
  * POST /api/scrape  { source: 'all' | specific }   (operator auth required)
+ * POST /api/scrape  { source: 'purge_gambling' }    (operator auth required) — deletes gambling rows from DB
  *
  * Unified scraper — each scraper runs independently, one failure never blocks others.
- *
- * Facebook strategy: RSSHub public instance converts FB pages → RSS.
- * No API token required. Falls back gracefully if RSSHub is down.
- * RSSHub routes: https://rsshub.app/facebook/page/{pageSlug}
- *
- * Sources:
- *   fuel     — DOE WEPS weekly fuel bulletin, Region VI pump prices
- *   more     — MORE Electric & Power Corp: website RSS + RSSHub FB feed
- *   mcwd     — Metro Iloilo Water District: website + RSSHub FB feed
- *   pagasa   — PAGASA heat index (numeric) + weather advisories
- *   cdrrmo   — CDRRMO Iloilo City: website + RSSHub FB feed
- *   energy   — DOE/BusinessMirror/Inquirer energy news filtered for Iloilo
- *   traffic  — CDRRMO/CITOM/LTFRB/LTO traffic alerts + news filtered for Iloilo
- *   news     — General Iloilo news (Panay News, Daily Guardian, Inquirer, SunStar,
- *               PNA, GMA, Rappler, MB, BusinessWorld, PhilStar, VisMin)
- *   facebook — Dedicated: all Iloilo FB pages via RSSHub
  */
 
 const CORS = {
@@ -30,24 +15,19 @@ const CORS = {
 }
 
 const UA          = 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)'
-const TIMEOUT_MS  = 18_000   // global per-request cap
-const FEED_TIMEOUT = 10_000  // per-feed cap so one slow feed never starves others
+const TIMEOUT_MS  = 18_000
+const FEED_TIMEOUT = 10_000
 
 // ── Gambling / casino content blocklist ──────────────────────────────────────
 // Applied to ALL scrapers before saving/returning results.
-const GAMBLING_BLOCKLIST = /\b(casino|gambling|gambl(?:e|ing|er)|slot\s*machine|poker|baccarat|roulette|lotto(?!\s*result)|e-?sabong|sabong|cockfight|cockpit|PAGCOR|PCSO|sweepstake|jueteng|mahjong\s*den|illegal\s*numbers?\s*game|bet(?:ting|tor)|sportsbook|online\s*casino|casino\s*plus|casinoplus)\b/i
+// Also used by the purge_gambling operation to clean the DB.
+const GAMBLING_BLOCKLIST = /\b(casino|gambling|gambl(?:e|ing|er)|slot\s*machine|poker|baccarat|roulette|lotto(?!\s*result)|e-?sabong|sabong|cockfight|cockpit|PAGCOR|PCSO|sweepstake|jueteng|mahjong\s*den|illegal\s*numbers?\s*game|bet(?:ting|tor)|sportsbook|online\s*casino|casino\s*plus|casinoplus|bingo\s*plus|bingoplus|\bBingo\b(?!\s*(?:hall|game|card|night))|PhilWeb|Lucky\s*Cola|Okbet|Megawin|Jilibet|Hawkplay|Lodibet|Winfordbet|Nuebe(?:gaming)?|phlwin|22bet|tmtplay|peso123|pinasbet)\b/i
 
-/**
- * Returns true if the item should be REMOVED (is gambling-related).
- */
 function isGamblingNews(item) {
   const text = `${item.title ?? ''} ${item.summary ?? ''}`
   return GAMBLING_BLOCKLIST.test(text)
 }
 
-/**
- * Filter an array of scraped items, removing gambling/casino content.
- */
 function filterGambling(items) {
   return items.filter(i => !isGamblingNews(i))
 }
@@ -75,7 +55,7 @@ const FB_PAGES = [
   { slug: 'sunstariloilo',        label: 'SunStar Iloilo',    sourceKey: 'news',       filter: null },
 ]
 
-// ── RSSHub helper: try each instance until one works ─────────────────────
+// ── RSSHub helper ─────────────────────────────────────────────────────────────
 async function fetchRSSHubFeed(pageSlug) {
   for (const base of RSSHUB_INSTANCES) {
     try {
@@ -92,11 +72,10 @@ async function fetchRSSHubFeed(pageSlug) {
   return null
 }
 
-// ── Parse RSS 2.0 + Atom 1.0 XML into items ───────────────────────────────
+// ── Parse RSS 2.0 + Atom 1.0 XML into items ───────────────────────────────────
 function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
   const items = []
 
-  // --- RSS 2.0 <item> blocks ---
   const itemRe = /<item[^>]*>(.*?)<\/item>/gis
   let m
   while ((m = itemRe.exec(xml)) !== null && items.length < maxItems) {
@@ -107,17 +86,9 @@ function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
     const desc     = stripHtml(stripCdata(xmlTag(block, 'description') ?? '')).slice(0, 400).trim()
     if (!title) continue
     if (filterRe && !filterRe.test(title + ' ' + desc)) continue
-    items.push({
-      title,
-      summary:  desc,
-      url:      link || null,
-      pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(),
-      category: sourceKey,
-      raw_data: null,
-    })
+    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
   }
 
-  // --- Atom 1.0 <entry> blocks (many gov/news sites use Atom) ---
   if (items.length === 0) {
     const entryRe = /<entry[^>]*>(.*?)<\/entry>/gis
     while ((m = entryRe.exec(xml)) !== null && items.length < maxItems) {
@@ -128,21 +99,14 @@ function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
       const desc    = stripHtml(stripCdata(xmlTag(block, 'summary') || xmlTag(block, 'content') || '')).slice(0, 400).trim()
       if (!title) continue
       if (filterRe && !filterRe.test(title + ' ' + desc)) continue
-      items.push({
-        title,
-        summary:  desc,
-        url:      link || null,
-        pub_date: updated ? toIsoDatetime(updated) : isoDatetime(),
-        category: sourceKey,
-        raw_data: null,
-      })
+      items.push({ title, summary: desc, url: link || null, pub_date: updated ? toIsoDatetime(updated) : isoDatetime(), category: sourceKey, raw_data: null })
     }
   }
 
   return items
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────────────────────
+// ── Entry point ───────────────────────────────────────────────────────────────
 export async function onRequest({ request, env }) {
   const method = request.method.toUpperCase()
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
@@ -158,13 +122,13 @@ export async function onRequest({ request, env }) {
   if (method === 'POST') {
     const authError = await requireOperator(request, env)
     if (authError) return authError
+    if (source === 'purge_gambling') return purgeGamblingRows(env.DB)
     return runScrape(env, source)
   }
   return json({ error: 'Method not allowed' }, 405)
 }
 
-// ── GET: cached D1 results ────────────────────────────────────────────────────────────────────
-
+// ── GET: cached D1 results ────────────────────────────────────────────────────
 async function getCached(DB, source, limit = null) {
   if (!DB) return json({ error: 'Database not configured', items: [] }, 503)
   const FB_KEYS = FB_PAGES.map(p => p.sourceKey)
@@ -185,7 +149,6 @@ async function getCached(DB, source, limit = null) {
   }
   try {
     const { results: rows = [] } = await stmt.all()
-    // Apply gambling filter on read so old DB rows are also cleaned up in responses
     const filtered = filterGambling(rows)
     return json({ source, count: filtered.length, updatedAt: filtered[0]?.scraped_at ?? null, items: filtered })
   } catch (e) {
@@ -193,8 +156,30 @@ async function getCached(DB, source, limit = null) {
   }
 }
 
-// ── POST: run live scrapers ────────────────────────────────────────────────────────────────────
+// ── POST: purge gambling rows from DB ────────────────────────────────────────
+async function purgeGamblingRows(DB) {
+  if (!DB) return json({ error: 'Database not configured' }, 503)
+  try {
+    // Pull all rows and delete ones that match gambling blocklist
+    const { results: rows = [] } = await DB.prepare('SELECT id, title, summary FROM scraped_news').all()
+    const badIds = rows.filter(r => isGamblingNews(r)).map(r => r.id)
+    if (badIds.length === 0) return json({ ok: true, purged: 0, message: 'No gambling rows found' })
+    // Delete in chunks of 50 to avoid query size limits
+    const chunks = []
+    for (let i = 0; i < badIds.length; i += 50) chunks.push(badIds.slice(i, i + 50))
+    let purged = 0
+    for (const chunk of chunks) {
+      const placeholders = chunk.map(() => '?').join(',')
+      const r = await DB.prepare(`DELETE FROM scraped_news WHERE id IN (${placeholders})`).bind(...chunk).run()
+      purged += r.changes ?? 0
+    }
+    return json({ ok: true, purged, message: `Deleted ${purged} gambling rows from DB` })
+  } catch (e) {
+    return json({ error: 'Purge error: ' + e.message }, 500)
+  }
+}
 
+// ── POST: run live scrapers ───────────────────────────────────────────────────
 async function runScrape(env, source) {
   const scrapers = {
     fuel:     scrapeFuelDoe,
@@ -216,7 +201,7 @@ async function runScrape(env, source) {
       if (!scrapers[key]) { results[key] = { error: 'Unknown source' }; return }
       try {
         const raw   = await scrapers[key]()
-        const items = filterGambling(raw)  // ← filter gambling before saving
+        const items = filterGambling(raw)
         const saved = (env.DB && items.length > 0) ? await upsertItems(env.DB, key, items) : 0
         results[key] = { scraped: raw.length, filtered: raw.length - items.length, saved }
       } catch (e) {
@@ -225,9 +210,9 @@ async function runScrape(env, source) {
     })
   )
 
-  const totalScraped  = Object.values(results).reduce((s, r) => s + (r.scraped   ?? 0), 0)
-  const totalFiltered = Object.values(results).reduce((s, r) => s + (r.filtered  ?? 0), 0)
-  const totalSaved    = Object.values(results).reduce((s, r) => s + (r.saved     ?? 0), 0)
+  const totalScraped  = Object.values(results).reduce((s, r) => s + (r.scraped  ?? 0), 0)
+  const totalFiltered = Object.values(results).reduce((s, r) => s + (r.filtered ?? 0), 0)
+  const totalSaved    = Object.values(results).reduce((s, r) => s + (r.saved    ?? 0), 0)
 
   if (env.DB) await writeAudit(env.DB, 'scrape_run', 'scraped_news', null,
     JSON.stringify({ source, totalScraped, totalFiltered, totalSaved, results }))
@@ -238,7 +223,6 @@ async function runScrape(env, source) {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 1: DOE Fuel Prices — Region VI
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeFuelDoe() {
   const items = []
   const resp  = await fetchWithTimeout('https://oilmonitor.doe.gov.ph/prices/weekly',
@@ -273,7 +257,6 @@ async function scrapeFuelDoe() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 2: MORE Electric & Power Corp
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeMorePower() {
   const items       = []
   const MORE_FILTER = /power.?interrupt|outage|schedul|advisory|restoration|load.?shedding|pemco|wesm/i
@@ -311,7 +294,6 @@ async function scrapeMorePower() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 3: Metro Iloilo Water District
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeMcwd() {
   const items = []
 
@@ -339,7 +321,6 @@ async function scrapeMcwd() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 4: PAGASA — Heat Index + Weather
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapePagasaHeatIndex() {
   const items = []
 
@@ -408,7 +389,6 @@ async function scrapePagasaHeatIndex() {
     }
   } catch (_) {}
 
-  // PAGASA RSS + Atom feeds
   for (const feedUrl of [
     'https://www.pagasa.dost.gov.ph/index.php?format=feed&type=rss',
     'https://www.pagasa.dost.gov.ph/index.php?format=feed&type=atom',
@@ -424,7 +404,6 @@ async function scrapePagasaHeatIndex() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 5: CDRRMO Iloilo City
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeCdrrmo() {
   const items = []
 
@@ -458,7 +437,6 @@ async function scrapeCdrrmo() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 6: Energy News
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeEnergyNews() {
   const items = []
   const ENERGY_FEEDS = [
@@ -484,7 +462,6 @@ async function scrapeEnergyNews() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 7: Traffic & Accident Alerts
 // ───────────────────────────────────────────────────────────────────────────────
-
 const TRAFFIC_KW = /traffic|accident|crash|collision|reroute|re-route|road.?clos|closed|checkpoint|congestion|vehicular|pileup|pile.?up|ltfrb|lto.?region|citom|enforce/i
 const ILOILO_KW  = /iloilo|panay|western visayas|region.?6|diversion|molo|jaro|mandurriao|lapuz|la paz|pavia/i
 
@@ -548,23 +525,17 @@ async function scrapeTrafficAlerts() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// SCRAPER 8: General Iloilo News — ENHANCED
-// Added: GMA Iloilo, Rappler Iloilo, Manila Bulletin, BusinessWorld, PhilStar
-// regional, VisMin news, Iloilo City Gov website; all feeds run in parallel.
+// SCRAPER 8: General Iloilo News
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeIloiloNews() {
   const items = []
   const IL    = /iloilo|panay|visayas|western visayas|cdrrmo|pagasa|iloilo city/i
 
-  // All RSS/Atom feeds run in parallel for speed
   const FEEDS = [
-    // Primary Iloilo publishers
     { url: 'https://www.panaynews.net/feed/',                         source: 'Panay News',       filter: IL },
     { url: 'https://www.panaynews.net/category/local/feed/',          source: 'Panay News Local', filter: IL },
     { url: 'https://thedailyguardian.net/feed/',                      source: 'Daily Guardian',   filter: IL },
-    { url: 'https://www.sunstar.com.ph/iloilo/rss.xml',               source: 'SunStar Iloilo',  filter: null },  // already Iloilo-specific
-    // National with Iloilo tags/sections
+    { url: 'https://www.sunstar.com.ph/iloilo/rss.xml',               source: 'SunStar Iloilo',  filter: null },
     { url: 'https://newsinfo.inquirer.net/tag/iloilo/feed/',           source: 'Inquirer',         filter: null },
     { url: 'https://www.pna.gov.ph/rss/articles?region=Region%20VI',  source: 'PNA Region VI',    filter: null },
     { url: 'https://www.gmanetwork.com/news/rss/region_iloilo.xml',    source: 'GMA Iloilo',       filter: null },
@@ -573,9 +544,7 @@ async function scrapeIloiloNews() {
     { url: 'https://www.philstar.com/rss/headlines',                   source: 'PhilStar',         filter: IL },
     { url: 'https://www.philstar.com/rss/nation',                      source: 'PhilStar Nation',  filter: IL },
     { url: 'https://www.bworldonline.com/feed/',                       source: 'BusinessWorld',    filter: IL },
-    // PNA Atom feed
     { url: 'https://www.pna.gov.ph/rss/articles?region=Region%20VI&format=atom', source: 'PNA Region VI (Atom)', filter: null },
-    // Iloilo City Government official news
     { url: 'https://iloilocity.gov.ph/feed/',                          source: 'Iloilo City Gov',  filter: null },
   ]
 
@@ -590,13 +559,11 @@ async function scrapeIloiloNews() {
   )
   feedResults.forEach(r => { if (r.status === 'fulfilled') items.push(...r.value) })
 
-  // Iloilo City Gov website — scrape article list directly
   try {
     const resp = await fetchWithTimeout('https://iloilocity.gov.ph/news/', { headers: { 'User-Agent': UA } }, FEED_TIMEOUT)
     if (resp.ok) items.push(...scrapeWordPressArchive(await resp.text(), 'news'))
   } catch (_) {}
 
-  // RSSHub Facebook: Iloilo City Gov, Panay News, PNA Region VI, GMA News, SunStar Iloilo
   const FB_NEWS = [
     { slug: 'iloilocitygov',   source: 'Iloilo City Gov FB' },
     { slug: 'PanayNewsOnline', source: 'Panay News FB'       },
@@ -623,7 +590,6 @@ async function scrapeIloiloNews() {
 // ───────────────────────────────────────────────────────────────────────────────
 // SCRAPER 9: Facebook Pages — dedicated source
 // ───────────────────────────────────────────────────────────────────────────────
-
 async function scrapeFacebookPages() {
   const items   = []
   const results = []
@@ -649,8 +615,7 @@ async function scrapeFacebookPages() {
   return dedupeByTitle(items).slice(0, 50)
 }
 
-// ── RSS helpers ──────────────────────────────────────────────────────────────────────────────
-
+// ── RSS helpers ───────────────────────────────────────────────────────────────
 async function parseRssFeed(feedUrl, sourceKey, maxItems = 8, filterRe = null) {
   const resp = await fetchWithTimeout(feedUrl, {
     headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
@@ -683,8 +648,7 @@ async function parseRssFeedDouble(feedUrl, sourceKey, maxItems = 8, filterA, fil
   return items
 }
 
-// ── WordPress archive helper ───────────────────────────────────────────────────────────────────
-// Handles standard WP themes AND custom/non-standard layouts
+// ── WordPress archive helper ──────────────────────────────────────────────────
 function scrapeWordPressArchive(html, sourceKey) {
   const items = []
   const seen  = new Set()
@@ -693,17 +657,9 @@ function scrapeWordPressArchive(html, sourceKey) {
     const key = normalizeTitle(title)
     if (!title || !key || seen.has(key)) return
     seen.add(key)
-    items.push({
-      title:    title.trim(),
-      summary:  excerpt?.trim() ?? '',
-      url,
-      pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(),
-      category: sourceKey,
-      raw_data: null,
-    })
+    items.push({ title: title.trim(), summary: excerpt?.trim() ?? '', url, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
   }
 
-  // Pattern A: standard WP entry-title + entry-date
   const titleReA   = /<h[2-4][^>]*class="[^"]*entry-title[^"]*"[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi
   const dateReA    = /<time[^>]*(?:class="[^"]*entry-date[^"]*"[^>]*datetime|datetime)="([^"]+)"/gi
   const excerptReA = /<div[^>]*class="[^"]*entry-(?:summary|content|excerpt)[^"]*"[^>]*>\s*<p>([^<]{10,400})<\/p>/gi
@@ -714,7 +670,6 @@ function scrapeWordPressArchive(html, sourceKey) {
     addItem(m[2], m[1], datesA[i]?.[1], excerptsA[i]?.[1])
   )
 
-  // Pattern B: <article> with <h2>/<h3> containing an <a>
   const articleRe  = /<article[^>]*>(.*?)<\/article>/gis
   const hLinkRe    = /<h[2-4][^>]*>.*?<a[^>]*href="([^"]+)"[^>]*>([^<]{5,200})<\/a>/is
   const dtAttrRe   = /datetime="([^"]{8,30})"/i
@@ -732,8 +687,7 @@ function scrapeWordPressArchive(html, sourceKey) {
   return items.slice(0, 10)
 }
 
-// ── D1 upsert ──────────────────────────────────────────────────────────────────────────────
-
+// ── D1 upsert ─────────────────────────────────────────────────────────────────
 async function upsertItems(DB, sourceKey, items) {
   await DB.prepare(`
     CREATE TABLE IF NOT EXISTS scraped_news (
@@ -776,8 +730,7 @@ async function upsertItems(DB, sourceKey, items) {
   return saved
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────────────
-
+// ── Auth ──────────────────────────────────────────────────────────────────────
 async function requireOperator(request, env) {
   const auth  = request.headers.get('Authorization') ?? ''
   const token = auth.replace(/^Bearer\s+/i, '').trim()
@@ -793,8 +746,7 @@ async function requireOperator(request, env) {
   } catch { return json({ error: 'Invalid token' }, 401) }
 }
 
-// ── Utilities ──────────────────────────────────────────────────────────────────────────────
-
+// ── Utilities ─────────────────────────────────────────────────────────────────
 async function fetchWithTimeout(url, opts = {}, ms = TIMEOUT_MS) {
   const c  = new AbortController()
   const id = setTimeout(() => c.abort(), ms)
@@ -821,7 +773,6 @@ function xmlAttr(xml, tag, attr)  { return xml.match(new RegExp(`<${tag}[^>\\s][
 function stripCdata(s)            { return (s ?? '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, (_, c) => c).trim() }
 function stripHtml(s)             { return (s ?? '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim() }
 
-// Fuzzy deduplication: normalise title to lowercase alphanum only, then compare
 function normalizeTitle(t) {
   return (t ?? '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80)
 }

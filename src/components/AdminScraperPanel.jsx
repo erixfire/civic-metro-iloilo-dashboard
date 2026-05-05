@@ -1,6 +1,7 @@
 /**
  * AdminScraperPanel — Admin tab for triggering scrapers and viewing results.
  * Shows a stale-data warning when the last successful scrape was >24h ago.
+ * Includes a "Purge Gambling" button to delete casino/betting rows from DB.
  */
 import { useState } from 'react'
 
@@ -22,11 +23,12 @@ export default function AdminScraperPanel({ getToken }) {
   const [activeSource, setActiveSource] = useState('all')
   const [status,       setStatus]       = useState(null)
   const [running,      setRunning]      = useState(false)
+  const [purging,      setPurging]      = useState(false)
+  const [purgeResult,  setPurgeResult]  = useState(null)
   const [items,        setItems]        = useState([])
   const [loadingItems, setLoadingItems] = useState(false)
   const [retryCount,   setRetryCount]   = useState(0)
 
-  // Compute stale-data warning from stored items
   const latestScrapedAt = items.reduce((latest, item) => {
     const d = item.scraped_at ? new Date(item.scraped_at).getTime() : 0
     return d > latest ? d : latest
@@ -37,7 +39,7 @@ export default function AdminScraperPanel({ getToken }) {
   const isStale = hoursSinceLastScrape !== null && hoursSinceLastScrape > STALE_HOURS
 
   async function triggerScrape(source, attempt = 0) {
-    setRunning(true); setStatus(null)
+    setRunning(true); setStatus(null); setPurgeResult(null)
     const MAX_RETRIES = 2
     try {
       const token = getToken?.()
@@ -47,7 +49,6 @@ export default function AdminScraperPanel({ getToken }) {
         body:    JSON.stringify({ source }),
       })
       if (!res.ok && attempt < MAX_RETRIES) {
-        // Exponential backoff retry for 5xx errors
         setRetryCount(attempt + 1)
         const delay = 1000 * 2 ** attempt
         await new Promise((r) => setTimeout(r, delay))
@@ -69,6 +70,25 @@ export default function AdminScraperPanel({ getToken }) {
     }
   }
 
+  async function purgeGambling() {
+    setPurging(true); setPurgeResult(null); setStatus(null)
+    try {
+      const token = getToken?.()
+      const res   = await fetch('/api/scrape', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body:    JSON.stringify({ source: 'purge_gambling' }),
+      })
+      const d = await res.json()
+      setPurgeResult(d)
+      loadItems(activeSource)
+    } catch (e) {
+      setPurgeResult({ error: e.message })
+    } finally {
+      setPurging(false)
+    }
+  }
+
   async function loadItems(source) {
     setLoadingItems(true)
     try {
@@ -79,7 +99,7 @@ export default function AdminScraperPanel({ getToken }) {
     finally { setLoadingItems(false) }
   }
 
-  function selectSource(key) { setActiveSource(key); setStatus(null); loadItems(key) }
+  function selectSource(key) { setActiveSource(key); setStatus(null); setPurgeResult(null); loadItems(key) }
 
   return (
     <div className="space-y-4">
@@ -115,9 +135,9 @@ export default function AdminScraperPanel({ getToken }) {
         ))}
       </div>
 
-      {/* Trigger */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => triggerScrape(activeSource)} disabled={running}
+      {/* Actions row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={() => triggerScrape(activeSource)} disabled={running || purging}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#01696f] hover:bg-[#015a5f] disabled:opacity-50 text-white text-sm font-semibold transition-colors">
           {running
             ? <>
@@ -130,8 +150,31 @@ export default function AdminScraperPanel({ getToken }) {
             : <>📡 Run {SOURCES.find(s => s.key === activeSource)?.label} Scraper</>
           }
         </button>
+
+        <button onClick={purgeGambling} disabled={running || purging}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors">
+          {purging
+            ? <><svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Purging…</>
+            : <>🗑️ Purge Gambling from DB</>
+          }
+        </button>
+
         <span className="text-xs text-zinc-400">Writes results to D1 → public /news page</span>
       </div>
+
+      {/* Purge result */}
+      {purgeResult && (
+        <div className={`rounded-xl border px-4 py-3 text-xs ${
+          purgeResult.error
+            ? 'border-red-200 bg-red-50 dark:bg-red-900/20 text-red-600'
+            : 'border-orange-200 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+        }`}>
+          {purgeResult.error
+            ? <span>❌ {purgeResult.error}</span>
+            : <span>🗑️ {purgeResult.message} ({purgeResult.purged} rows deleted)</span>
+          }
+        </div>
+      )}
 
       {/* Result summary */}
       {status && (
@@ -142,14 +185,20 @@ export default function AdminScraperPanel({ getToken }) {
         }`}>
           {status.error ? <span>❌ {status.error}</span> : (
             <div className="space-y-1">
-              <div className="font-semibold">✅ {status.totalScraped} fetched — {status.totalSaved} new/updated saved to D1</div>
+              <div className="font-semibold">
+                ✅ {status.totalScraped} fetched
+                {status.totalFiltered > 0 && <span className="text-orange-500 dark:text-orange-400"> · {status.totalFiltered} gambling removed</span>}
+                {' — '}{status.totalSaved} new/updated saved to D1
+              </div>
               {status.results && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 mt-2">
                   {Object.entries(status.results).map(([key, r]) => (
                     <div key={key} className="flex items-center gap-1">
                       <span className={`w-1.5 h-1.5 rounded-full inline-block ${ r.error ? 'bg-red-400' : 'bg-green-400' }`} />
                       <span className="capitalize">{key}</span>
-                      <span className="text-zinc-400">{r.error ? `— ${r.error}` : `×${r.scraped}`}</span>
+                      <span className="text-zinc-400">
+                        {r.error ? `— ${r.error}` : `×${r.scraped ?? 0}${r.filtered > 0 ? ` (−${r.filtered}🎰)` : ''}`}
+                      </span>
                     </div>
                   ))}
                 </div>

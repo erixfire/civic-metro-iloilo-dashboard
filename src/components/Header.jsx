@@ -1,9 +1,22 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
 
+// Fallback seal rendered as an SVG inline so image never breaks
+function SealFallback() {
+  return (
+    <div className="w-10 h-10 rounded-full ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-[#01696f] flex items-center justify-center shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="18" stroke="white" strokeWidth="2" fill="none" />
+        <text x="20" y="26" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">I</text>
+      </svg>
+    </div>
+  )
+}
+
 export default function Header({ user, onLogout }) {
   const { darkMode, toggleDarkMode, toggleSidebar, sidebarOpen, lang, toggleLang } = useStore()
-  const [time, setTime] = useState(new Date())
+  const [time,       setTime]       = useState(new Date())
+  const [sealBroken, setSealBroken] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -39,13 +52,16 @@ export default function Header({ user, onLogout }) {
       </button>
 
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <img
-          src="/seal.png"
-          alt="Iloilo City Government Seal"
-          width={40}
-          height={40}
-          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
-        />
+        {sealBroken ? <SealFallback /> : (
+          <img
+            src="/seal.png"
+            alt="Iloilo City Government Seal"
+            width={40}
+            height={40}
+            onError={() => setSealBroken(true)}
+            className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
+          />
+        )}
         <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">Bantay Iloilo City</span>
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
           Bantay Iloilo City App — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
