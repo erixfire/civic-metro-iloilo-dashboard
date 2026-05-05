@@ -11,6 +11,7 @@ import AdminCmcManage          from './AdminCmcManage'
 import AdminSettings           from './AdminSettings'
 import AdminAuditLog           from './AdminAuditLog'
 import AdminKitchenSites       from './AdminKitchenSites'
+import AdminKitchenDashboard   from './AdminKitchenDashboard'
 import AdminIncidents          from './AdminIncidents'
 import AdminUserManagement     from './AdminUserManagement'
 import AdminNotifications      from './AdminNotifications'
@@ -18,18 +19,19 @@ import AdminFuelSync           from './AdminFuelSync'
 import AdminScraperPanel       from './AdminScraperPanel'
 
 const ALL_TABS = [
-  { id: 'overview',      label: '📊 Overview',       minRole: 'viewer'   },
-  { id: 'incidents',     label: '📌 Incidents',       minRole: 'operator' },
-  { id: 'utility',       label: '⚡ Utility Alerts',  minRole: 'operator' },
-  { id: 'kitchen',       label: '🍲 Kitchen Sites',   minRole: 'operator' },
-  { id: 'fuel',          label: '⛽ Fuel Prices',      minRole: 'operator' },
-  { id: 'scraper',       label: '📡 News Scraper',    minRole: 'operator' },
-  { id: 'cmc-manage',   label: '🏛️ CMC Manage',      minRole: 'operator' },
-  { id: 'cmc-create',   label: '➕ CMC Create',       minRole: 'operator' },
-  { id: 'notifications', label: '🔔 Push Alerts',     minRole: 'operator' },
-  { id: 'settings',      label: '⚙️ Settings',        minRole: 'admin'    },
-  { id: 'users',         label: '👥 Users',            minRole: 'admin'    },
-  { id: 'audit',         label: '📋 Audit Log',        minRole: 'admin'    },
+  { id: 'overview',          label: '📊 Overview',          minRole: 'viewer'   },
+  { id: 'incidents',         label: '📌 Incidents',         minRole: 'operator' },
+  { id: 'kitchen-dashboard', label: '🍲 Kitchen Dashboard', minRole: 'operator' },
+  { id: 'kitchen-sites',     label: '🧭 Kitchen Sites',     minRole: 'operator' },
+  { id: 'utility',           label: '⚡ Utility Alerts',    minRole: 'operator' },
+  { id: 'fuel',              label: '⛽ Fuel Prices',        minRole: 'operator' },
+  { id: 'scraper',           label: '📡 News Scraper',     minRole: 'operator' },
+  { id: 'cmc-manage',        label: '🏛️ CMC Manage',       minRole: 'operator' },
+  { id: 'cmc-create',        label: '➕ CMC Create',         minRole: 'operator' },
+  { id: 'notifications',     label: '🔔 Push Alerts',        minRole: 'operator' },
+  { id: 'settings',          label: '⚙️ Settings',           minRole: 'admin'    },
+  { id: 'users',             label: '👥 Users',              minRole: 'admin'    },
+  { id: 'audit',             label: '📋 Audit Log',          minRole: 'admin'    },
 ]
 
 const ROLE_RANK = { admin: 3, operator: 2, viewer: 1 }
@@ -150,12 +152,13 @@ export default function AdminPanel({ onNavigate, user, getToken, defaultTab }) {
           {role !== 'viewer' && (
             <AdminSection title="⚡ Quick Actions">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <QuickLink icon="📌" label="Incident Dashboard"  desc="Filter, bulk resolve, export CSV"  onClick={() => setTab('incidents')} />
-                <QuickLink icon="🏛️" label="CMC Meeting Board"   desc="Status controls, action items"     onClick={() => setTab('cmc-manage')} />
-                <QuickLink icon="⛽" label="Fuel Prices"         desc="DOE sync or manual LPCC entry"     onClick={() => setTab('fuel')} />
-                <QuickLink icon="📡" label="News Scraper"        desc="Fetch live updates from all sources" onClick={() => setTab('scraper')} />
-                <QuickLink icon="🔔" label="Push Notifications"  desc="Send alerts to all subscribers"   onClick={() => setTab('notifications')} />
-                <QuickLink icon="⚡" label="Utility Alerts"      desc="Manage power/water notices"       onClick={() => setTab('utility')} />
+                <QuickLink icon="📌" label="Incident Dashboard"     desc="Filter, bulk resolve, export CSV"      onClick={() => setTab('incidents')} />
+                <QuickLink icon="🍲" label="Kitchen Dashboard"     desc="Stats, daily log, log new entry"        onClick={() => setTab('kitchen-dashboard')} />
+                <QuickLink icon="🏛️" label="CMC Meeting Board"    desc="Status controls, action items"          onClick={() => setTab('cmc-manage')} />
+                <QuickLink icon="⛽" label="Fuel Prices"            desc="DOE sync or manual LPCC entry"          onClick={() => setTab('fuel')} />
+                <QuickLink icon="📡" label="News Scraper"          desc="Fetch live updates from all sources"    onClick={() => setTab('scraper')} />
+                <QuickLink icon="🔔" label="Push Notifications"    desc="Send alerts to all subscribers"        onClick={() => setTab('notifications')} />
+                <QuickLink icon="⚡" label="Utility Alerts"         desc="Manage power/water notices"             onClick={() => setTab('utility')} />
                 {role === 'admin' && <QuickLink icon="👥" label="User Management" desc="Add/deactivate operator accounts" onClick={() => setTab('users')} />}
               </div>
             </AdminSection>
@@ -184,17 +187,18 @@ export default function AdminPanel({ onNavigate, user, getToken, defaultTab }) {
         </>
       )}
 
-      {tab === 'incidents'     && <AdminSection title="📌 Incident Management"><AdminIncidents getToken={getToken} /></AdminSection>}
-      {tab === 'utility'       && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts getToken={getToken} /></AdminSection>}
-      {tab === 'kitchen'       && <AdminSection title="🍲 Kitchen Site Management"><AdminKitchenSites getToken={getToken} /></AdminSection>}
-      {tab === 'fuel'          && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync getToken={getToken} /></AdminSection>}
-      {tab === 'scraper'       && <AdminSection title="📡 News Scraper"><AdminScraperPanel getToken={getToken} /></AdminSection>}
-      {tab === 'cmc-manage'   && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage getToken={getToken} /></AdminSection>}
-      {tab === 'cmc-create'   && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate getToken={getToken} onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
-      {tab === 'notifications' && <AdminSection title="🔔 Push Notifications"><AdminNotifications getToken={getToken} /></AdminSection>}
-      {tab === 'settings'      && role === 'admin' && <AdminSection title="⚙️ App Settings (D1)"><AdminSettings getToken={getToken} /></AdminSection>}
-      {tab === 'users'         && role === 'admin' && <AdminSection title="👥 User Management"><AdminUserManagement getToken={getToken} /></AdminSection>}
-      {tab === 'audit'         && role === 'admin' && <AdminSection title="📋 Audit Log"><AdminAuditLog getToken={getToken} /></AdminSection>}
+      {tab === 'incidents'         && <AdminSection title="📌 Incident Management"><AdminIncidents getToken={getToken} /></AdminSection>}
+      {tab === 'kitchen-dashboard' && <AdminSection title="🍲 Community Kitchen Dashboard"><AdminKitchenDashboard getToken={getToken} /></AdminSection>}
+      {tab === 'kitchen-sites'     && <AdminSection title="🧭 Kitchen Site Management"><AdminKitchenSites getToken={getToken} /></AdminSection>}
+      {tab === 'utility'           && <AdminSection title="⚡ Utility Alert Management"><AdminUtilityAlerts getToken={getToken} /></AdminSection>}
+      {tab === 'fuel'              && <AdminSection title="⛽ Fuel Prices — DOE / LPCC"><AdminFuelSync getToken={getToken} /></AdminSection>}
+      {tab === 'scraper'           && <AdminSection title="📡 News Scraper"><AdminScraperPanel getToken={getToken} /></AdminSection>}
+      {tab === 'cmc-manage'        && <AdminSection title="🏛️ CMC Meeting Board"><AdminCmcManage getToken={getToken} /></AdminSection>}
+      {tab === 'cmc-create'        && <AdminSection title="➕ Create New CMC Meeting"><AdminCmcCreate getToken={getToken} onSuccess={() => setTab('cmc-manage')} /></AdminSection>}
+      {tab === 'notifications'     && <AdminSection title="🔔 Push Notifications"><AdminNotifications getToken={getToken} /></AdminSection>}
+      {tab === 'settings'          && role === 'admin' && <AdminSection title="⚙️ App Settings (D1)"><AdminSettings getToken={getToken} /></AdminSection>}
+      {tab === 'users'             && role === 'admin' && <AdminSection title="👥 User Management"><AdminUserManagement getToken={getToken} /></AdminSection>}
+      {tab === 'audit'             && role === 'admin' && <AdminSection title="📋 Audit Log"><AdminAuditLog getToken={getToken} /></AdminSection>}
     </div>
   )
 }
