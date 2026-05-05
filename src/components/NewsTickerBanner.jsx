@@ -1,8 +1,6 @@
 /**
- * NewsTickerBanner — scrolling urgent alert ticker for the main dashboard
- * Shows the latest urgent items from MORE Power, traffic, and CDRRMO.
- * Auto-refreshes every 30 minutes. Clicking an item opens the source URL.
- * Hides itself when no urgent items are found.
+ * NewsTickerBanner — scrolling urgent alert ticker.
+ * Mobile-optimised: icon-only Alert label at xs, dismiss button meets 44px tap target.
  */
 import { useState, useEffect, useRef } from 'react'
 
@@ -33,7 +31,6 @@ export default function NewsTickerBanner() {
     return () => { clearInterval(intervalRef.current); clearInterval(refreshRef.current) }
   }, [])
 
-  // Rotate ticker item every 6 seconds
   useEffect(() => {
     clearInterval(intervalRef.current)
     if (alerts.length > 1) {
@@ -59,22 +56,23 @@ export default function NewsTickerBanner() {
   const item = alerts[current]
 
   return (
-    <div className="relative flex items-center gap-3 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-4 py-2.5 mb-4 overflow-hidden">
+    <div className="relative flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-3 py-2 mb-3 sm:mb-4 overflow-hidden">
       {/* Pulsing dot */}
       <span className="relative flex h-2.5 w-2.5 shrink-0">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
       </span>
 
-      {/* Label */}
-      <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest shrink-0">
-        {SOURCE_ICON[item.source_key] ?? '🚨'} Alert
+      {/* Label: icon always visible; text label only on sm+ */}
+      <span className="text-sm shrink-0" aria-hidden="true">{SOURCE_ICON[item.source_key] ?? '🚨'}</span>
+      <span className="hidden sm:inline text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest shrink-0">
+        Alert
       </span>
 
-      {/* Divider */}
-      <span className="w-px h-4 bg-red-200 dark:bg-red-800 shrink-0" />
+      {/* Divider: sm+ only */}
+      <span className="hidden sm:block w-px h-4 bg-red-200 dark:bg-red-800 shrink-0" />
 
-      {/* Scrolling content */}
+      {/* Alert text */}
       <a
         key={current}
         href={item.url || '#'}
@@ -90,7 +88,10 @@ export default function NewsTickerBanner() {
       {alerts.length > 1 && (
         <div className="flex items-center gap-1 shrink-0">
           {alerts.map((_, i) => (
-            <button key={i} onClick={() => setCurrent(i)}
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              aria-label={`Alert ${i + 1} of ${alerts.length}`}
               className={`w-1.5 h-1.5 rounded-full transition-colors ${
                 i === current ? 'bg-red-500' : 'bg-red-200 dark:bg-red-800'
               }`}
@@ -99,13 +100,13 @@ export default function NewsTickerBanner() {
         </div>
       )}
 
-      {/* Dismiss */}
+      {/* Dismiss — 44×44px tap target */}
       <button
         onClick={() => setVisible(false)}
-        className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-200 text-xs leading-none ml-1"
-        aria-label="Dismiss"
+        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 dark:hover:text-red-200 transition-colors -mr-1"
+        aria-label="Dismiss alert"
       >
-        ✕
+        <span aria-hidden="true" className="text-sm">✕</span>
       </button>
 
       <style>{`@keyframes fadein { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>

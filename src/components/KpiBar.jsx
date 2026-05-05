@@ -61,13 +61,13 @@ export default function KpiBar() {
       hil:   'Presyo sang Gasolina',
       value: fuelLoading ? '…' : fmt(gasolinePrice),
       color: 'text-zinc-700 dark:text-zinc-200',
-      subEn:  'per litre · DOE/LPCC',
-      subHil: 'kada litro · DOE/LPCC',
+      subEn:  'per litre · DOE',
+      subHil: 'kada litro · DOE',
     },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 sm:mb-5">
       {KPI_STATS.map((k) => (
         <div
           key={k.id}
@@ -76,15 +76,29 @@ export default function KpiBar() {
           <div className="flex items-center gap-1.5 mb-1">
             <span className="text-base" aria-hidden="true">{k.icon}</span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 truncate" lang={t('en', 'hil')}>
+              {/* label truncates; title attr surfaces full text on long-press */}
+              <div
+                className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 truncate"
+                lang={t('en', 'hil')}
+                title={t(k.en, k.hil)}
+              >
                 {t(k.en, k.hil)}
               </div>
             </div>
           </div>
-          <div className={`tabular text-2xl font-extrabold ${k.color} leading-none`}>
+
+          {/* Value: text-xl on mobile, text-2xl on sm+ */}
+          <div className={`tabular text-xl sm:text-2xl font-extrabold ${k.color} leading-none`}>
             {k.value}{k.unit ?? ''}
           </div>
-          <div className="text-[10px] text-zinc-400 mt-1 truncate">{t(k.subEn, k.subHil)}</div>
+
+          {/* Sub-label with title fallback */}
+          <div
+            className="text-[10px] text-zinc-400 mt-1 truncate"
+            title={t(k.subEn, k.subHil)}
+          >
+            {t(k.subEn, k.subHil)}
+          </div>
         </div>
       ))}
     </div>

@@ -1,10 +1,6 @@
 /**
  * TrafficMap — Waze embed + Leaflet City Ops map.
- * Mobile-optimised, ARIA tablist, i18n-aware.
- *
- * Waze iframe is lazy: rendered only when the Waze tab is selected.
- * This eliminates the TrustedScriptURL / TrustedHTML CSP noise and the
- * LivemapConfig 400 error that appear on dashboard load.
+ * Mobile-optimised: legend uses overflow-x-auto scroll instead of flex-wrap (no 3-line wrap).
  */
 import { MapContainer, TileLayer, CircleMarker, Popup, Marker, useMap } from 'react-leaflet'
 import { useEffect, useState } from 'react'
@@ -39,12 +35,6 @@ function InvalidateSizeOnMount() {
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 640
 
-/**
- * WazeTab — iframe rendered only when active (wazeLoaded=true).
- * Prevents Trusted Types / LivemapConfig 400 errors on dashboard load.
- * The `allow` attribute grants geolocation so Waze can show location-aware
- * traffic without needing user/visitor_id params.
- */
 function WazeTab({ t, active }) {
   const [wazeLoaded, setWazeLoaded] = useState(false)
 
@@ -58,14 +48,14 @@ function WazeTab({ t, active }) {
         <iframe
           src="https://embed.waze.com/iframe?zoom=13&lat=10.7202&lon=122.5621&ct=livemap&pin=0"
           width="100%"
-          className="w-full block h-[260px] sm:h-[420px]"
+          className="w-full block h-[300px] sm:h-[420px]"
           frameBorder="0"
           allowFullScreen
           allow="geolocation"
           title={t('Waze Live Traffic map for Iloilo City', 'Mapa sang Live Traffic sa Iloilo City')}
         />
       ) : (
-        <div className="w-full h-[260px] sm:h-[420px] flex items-center justify-center bg-zinc-50 dark:bg-zinc-800 text-zinc-400 text-sm">
+        <div className="w-full h-[300px] sm:h-[420px] flex items-center justify-center bg-zinc-50 dark:bg-zinc-800 text-zinc-400 text-sm">
           <span>Loading Waze map…</span>
         </div>
       )}
@@ -81,7 +71,7 @@ function WazeTab({ t, active }) {
 
 function CityOpsTab({ incidents, t }) {
   const mobile    = isMobile()
-  const mapHeight = mobile ? '260px' : '420px'
+  const mapHeight = mobile ? '300px' : '420px'
   const tileUrl   = mobile
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
     : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -153,14 +143,12 @@ export default function TrafficMap() {
 
   return (
     <div className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden shadow-sm bg-white dark:bg-zinc-900">
-      <div className="px-4 py-3 border-b border-black/10 dark:border-white/10 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-100">
+      <div className="px-4 py-3 border-b border-black/10 dark:border-white/10 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm sm:text-base font-bold text-zinc-800 dark:text-zinc-100 truncate">
             {t('Traffic & City Map', 'Trapiko kag Mapa sang Siyudad')}
           </h2>
-          <p className="text-xs text-zinc-400">
-            {t('Iloilo City · Live', 'Iloilo City · Live')}
-          </p>
+          <p className="text-xs text-zinc-400">{t('Iloilo City · Live', 'Iloilo City · Live')}</p>
         </div>
         <div
           role="tablist"
@@ -173,7 +161,7 @@ export default function TrafficMap() {
               aria-selected={activeTab === tab.id}
               aria-controls={`tabpanel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`px-3 py-2 text-xs font-semibold transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[#01696f] text-white'
                   : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -192,9 +180,10 @@ export default function TrafficMap() {
         <CityOpsTab incidents={incidents} t={t} />
       </div>
 
+      {/* Legend — horizontal scroll on mobile so it never wraps to multiple lines */}
       {activeTab === 'cityops' && (
         <div
-          className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap gap-3 text-[11px] text-zinc-400"
+          className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 flex gap-3 text-[11px] text-zinc-400 overflow-x-auto no-scrollbar whitespace-nowrap"
           aria-label={t('Map legend', 'Tanda sa Mapa')}
         >
           <span>🔴 {t('Heavy', 'Mabug-at')}</span>
@@ -205,8 +194,8 @@ export default function TrafficMap() {
         </div>
       )}
       {activeTab === 'waze' && (
-        <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 text-[11px] text-zinc-400">
-          {t('Live Waze data · Open the Waze app for more detail', 'Live nga datos sa Waze · Buksa ang Waze app para sa mas detalye')}
+        <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/5 text-[11px] text-zinc-400 truncate">
+          {t('Live Waze data · Open Waze app for more detail', 'Live nga datos sa Waze · Buksa ang Waze app')}
         </div>
       )}
     </div>

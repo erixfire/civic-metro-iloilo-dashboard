@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import useStore from '../store/useStore'
 
-// Fallback seal rendered as an SVG inline so image never breaks
 function SealFallback() {
   return (
-    <div className="w-10 h-10 rounded-full ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-[#01696f] flex items-center justify-center shrink-0" aria-hidden="true">
-      <svg viewBox="0 0 40 40" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className="w-9 h-9 rounded-full ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-[#01696f] flex items-center justify-center shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="20" cy="20" r="18" stroke="white" strokeWidth="2" fill="none" />
         <text x="20" y="26" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">I</text>
       </svg>
@@ -43,7 +42,14 @@ export default function Header({ user, onLogout }) {
         Skip to main content
       </a>
 
-      <button onClick={toggleSidebar} aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} aria-expanded={sidebarOpen} aria-controls="app-sidebar" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 shrink-0">
+      {/* Hamburger */}
+      <button
+        onClick={toggleSidebar}
+        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        aria-expanded={sidebarOpen}
+        aria-controls="app-sidebar"
+        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 shrink-0"
+      >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
           {sidebarOpen
             ? <path d="M14 4l-5 5 5 5M4 4l5 5-5 5" stroke="currentColor" fill="none" strokeWidth="1.8" strokeLinecap="round"/>
@@ -51,54 +57,94 @@ export default function Header({ user, onLogout }) {
         </svg>
       </button>
 
-      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+      {/* Seal + Title */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
         {sealBroken ? <SealFallback /> : (
           <img
             src="/seal.png"
             alt="Iloilo City Government Seal"
-            width={40}
-            height={40}
+            width={36}
+            height={36}
             onError={() => setSealBroken(true)}
-            className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
+            className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-black/20 dark:ring-white/20 shadow-sm bg-white"
           />
         )}
-        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">Bantay Iloilo City</span>
+        {/* Mobile: short title only */}
+        <span className="sm:hidden text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">Bantay Iloilo</span>
+        {/* Desktop: full title */}
         <span className="hidden sm:block text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
           Bantay Iloilo City App — {lang === 'hil' ? 'Dashboard sang Iloilo City' : 'Iloilo City Dashboard'}
         </span>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0" aria-label="Live data">
+        {/* Live badge — hidden on xs to save space */}
+        <span
+          className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium shrink-0"
+          aria-label="Live data"
+        >
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" aria-hidden="true" />
           Live
         </span>
       </div>
 
-      <div className="tabular hidden md:flex flex-col items-end text-xs shrink-0" aria-label={`Current time: ${timeStr}, ${dateStr}`}>
+      {/* Clock: sm+ only (hidden on xs to avoid overflow) */}
+      <div className="tabular hidden sm:flex flex-col items-end text-xs shrink-0" aria-label={`Current time: ${timeStr}, ${dateStr}`}>
         <span className="font-semibold text-zinc-700 dark:text-zinc-200" aria-hidden="true">{timeStr}</span>
         <span className="text-zinc-400" aria-hidden="true">{dateStr}</span>
       </div>
-      <div className="tabular md:hidden text-xs font-semibold text-zinc-500 shrink-0" aria-hidden="true">{timeStr}</div>
 
+      {/* Logged-in user: desktop shows name+role; mobile shows compact logout icon only */}
       {user && (
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-tight">{user.full_name ?? user.username}</span>
-            <span className={`text-[10px] font-semibold px-1.5 py-px rounded capitalize ${ roleColor[user.role] ?? roleColor.viewer }`}>{user.role}</span>
+        <>
+          {/* Desktop user info */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 leading-tight">{user.full_name ?? user.username}</span>
+              <span className={`text-[10px] font-semibold px-1.5 py-px rounded capitalize ${ roleColor[user.role] ?? roleColor.viewer }`}>{user.role}</span>
+            </div>
+            <button
+              onClick={onLogout}
+              aria-label="Sign out"
+              title="Sign out"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0 text-sm"
+            >
+              <span aria-hidden="true">⏏</span>
+            </button>
           </div>
-          <button onClick={onLogout} aria-label="Sign out" title="Sign out" className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0 text-sm">
-            <span aria-hidden="true">⏏</span>
+          {/* Mobile: compact logout icon only */}
+          <button
+            onClick={onLogout}
+            aria-label="Sign out"
+            title={`Sign out (${user.username})`}
+            className="sm:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-red-800 transition-colors shrink-0"
+          >
+            <span aria-hidden="true" className="text-sm">⏏</span>
           </button>
-        </div>
+        </>
       )}
 
+      {/* EN / HIL toggle */}
       <div role="group" aria-label="Language selection" className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden shrink-0">
         {['en', 'hil'].map((l) => (
-          <button key={l} onClick={() => l !== lang && toggleLang()} aria-pressed={lang === l} aria-label={l === 'en' ? 'Switch to English' : 'Pag-usab sa Hiligaynon'} className={`px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${lang === l ? 'bg-[#01696f] text-white' : 'bg-white dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}>
+          <button
+            key={l}
+            onClick={() => l !== lang && toggleLang()}
+            aria-pressed={lang === l}
+            aria-label={l === 'en' ? 'Switch to English' : 'Pag-usab sa Hiligaynon'}
+            className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors ${
+              lang === l ? 'bg-[#01696f] text-white' : 'bg-white dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+            }`}
+          >
             {l === 'en' ? 'EN' : 'HIL'}
           </button>
         ))}
       </div>
 
-      <button onClick={toggleDarkMode} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 shrink-0">
+      {/* Dark mode */}
+      <button
+        onClick={toggleDarkMode}
+        aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-pressed={darkMode}
+        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 shrink-0"
+      >
         {darkMode
           ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}

@@ -27,8 +27,13 @@ export default function Sidebar() {
   const adminItems = NAV_ITEMS.filter(n => n.group === 'admin')
   const firstFocusableRef = useRef(null)
 
+  // Touch swipe-to-close (left swipe closes sidebar on mobile)
+  const touchStartX = useRef(null)
+  const sidebarRef  = useRef(null)
+
   function navigate(id) { setActiveSection(id); setSidebarOpen(false) }
 
+  // Keyboard close + focus trap
   useEffect(() => {
     if (!sidebarOpen) return
     firstFocusableRef.current?.focus()
@@ -36,6 +41,18 @@ export default function Sidebar() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [sidebarOpen, setSidebarOpen])
+
+  // Swipe-to-close: track touch start on the sidebar
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX
+  }
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    // Left swipe > 60px → close
+    if (dx < -60) setSidebarOpen(false)
+    touchStartX.current = null
+  }
 
   return (
     <>
@@ -49,8 +66,11 @@ export default function Sidebar() {
 
       <aside
         id="app-sidebar"
+        ref={sidebarRef}
         role="navigation"
         aria-label={t('Main navigation', 'Panguna nga Nabigasyon')}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className={`fixed top-0 left-0 h-full z-50 bg-white dark:bg-zinc-900 border-r border-black/10 dark:border-white/10 shadow-lg transition-transform duration-300 flex flex-col ${
           sidebarOpen ? 'translate-x-0 w-60' : '-translate-x-full w-60 md:translate-x-0 md:w-0 md:overflow-hidden'
         }`}
@@ -69,7 +89,7 @@ export default function Sidebar() {
           <button
             ref={firstFocusableRef}
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+            className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
             aria-label={t('Close navigation menu', 'Isara ang menu')}
           >
             <span aria-hidden="true">✕</span>
@@ -90,11 +110,9 @@ export default function Sidebar() {
             >
               <span className="text-base shrink-0" aria-hidden="true">{item.icon}</span>
               <div className="min-w-0">
-                {/* Primary label: active language */}
                 <div className="text-sm font-semibold truncate" lang={lang}>
                   {t(item.en, item.hil)}
                 </div>
-                {/* Subtitle: the other language (dimmed) */}
                 <div className="text-[10px] opacity-50 truncate" lang={lang === 'en' ? 'hil' : 'en'}>
                   {lang === 'en' ? item.hil : item.en}
                 </div>
