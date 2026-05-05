@@ -5,6 +5,7 @@
  * POST /api/scrape  { source: 'purge_gambling' }    (operator auth required) — deletes gambling rows from DB
  *
  * Unified scraper — each scraper runs independently, one failure never blocks others.
+ * All timestamps stored in PHT (Asia/Manila, UTC+8).
  */
 
 const CORS = {
@@ -14,25 +15,47 @@ const CORS = {
   'Content-Type':                 'application/json',
 }
 
-const UA          = 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)'
-const TIMEOUT_MS  = 18_000
+const UA           = 'CivicIloiloDashboard/1.0 (+https://iloilocity.app)'
+const TIMEOUT_MS   = 18_000
 const FEED_TIMEOUT = 10_000
 
-// ── Gambling / casino content blocklist ──────────────────────────────────────
-// Applied to ALL scrapers before saving/returning results.
-// Also used by the purge_gambling operation to clean the DB.
+// ── PHT helpers (UTC+8) ──────────────────────────────────────────────────────
+// All timestamps stored in PHT so relativeTime() in the UI is always correct.
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+
+function phtNow()         { return new Date(Date.now() + PHT_OFFSET_MS) }
+function isoDatetimePHT() { return phtNow().toISOString().replace('T', ' ').slice(0, 19) }
+function isoDatePHT()     { return phtNow().toISOString().slice(0, 10) }
+function todayPHT()       { return phtNow().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) }
+
+// Keep old aliases used across scrapers
+const isoDatetime = isoDatetimePHT
+const isoDate     = isoDatePHT
+const todayPH     = todayPHT
+
+function toIsoDatetime(str) {
+  try {
+    const d = new Date(str)
+    if (isNaN(d)) return isoDatetimePHT()
+    // If the source string has no timezone info assume PHT already;
+    // if it has Z / offset, convert correctly to PHT wall-clock
+    const hasTz = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(str.trim())
+    if (hasTz) return new Date(d.getTime() + PHT_OFFSET_MS).toISOString().replace('T', ' ').slice(0, 19)
+    return d.toISOString().replace('T', ' ').slice(0, 19)
+  } catch { return isoDatetimePHT() }
+}
+
+// ── Gambling / casino content blocklist ─────────────────────────────────────
 const GAMBLING_BLOCKLIST = /\b(casino|gambling|gambl(?:e|ing|er)|slot\s*machine|poker|baccarat|roulette|lotto(?!\s*result)|e-?sabong|sabong|cockfight|cockpit|PAGCOR|PCSO|sweepstake|jueteng|mahjong\s*den|illegal\s*numbers?\s*game|bet(?:ting|tor)|sportsbook|online\s*casino|casino\s*plus|casinoplus|bingo\s*plus|bingoplus|\bBingo\b(?!\s*(?:hall|game|card|night))|PhilWeb|Lucky\s*Cola|Okbet|Megawin|Jilibet|Hawkplay|Lodibet|Winfordbet|Nuebe(?:gaming)?|phlwin|22bet|tmtplay|peso123|pinasbet)\b/i
 
 function isGamblingNews(item) {
-  const text = `${item.title ?? ''} ${item.summary ?? ''}`
-  return GAMBLING_BLOCKLIST.test(text)
+  return GAMBLING_BLOCKLIST.test(`${item.title ?? ''} ${item.summary ?? ''}`)
 }
-
 function filterGambling(items) {
   return items.filter(i => !isGamblingNews(i))
 }
 
-// ── RSSHub public instances (tried in order, first success wins) ─────────────
+// ── RSSHub public instances ──────────────────────────────────────────────────
 const RSSHUB_INSTANCES = [
   'https://rsshub.app',
   'https://rss.laundmo.de',
@@ -41,18 +64,17 @@ const RSSHUB_INSTANCES = [
   'https://rsshub.woodland.cafe',
 ]
 
-// Known Iloilo-relevant Facebook page slugs
 const FB_PAGES = [
-  { slug: 'MOREpowerIloilo',      label: 'MORE Power',        sourceKey: 'more-power', filter: /power|interrupt|outage|advisory|restoration|wesm|pemco/i },
-  { slug: 'IloiloCDRRMO',         label: 'CDRRMO Iloilo',     sourceKey: 'cdrrmo',     filter: null },
-  { slug: 'CITOMIloilo',          label: 'CITOM Iloilo',      sourceKey: 'traffic',    filter: null },
-  { slug: 'MCWDIloiloWater',      label: 'MCWD Water',        sourceKey: 'mcwd',       filter: null },
-  { slug: 'iloilocitygov',        label: 'Iloilo City Gov',   sourceKey: 'news',       filter: null },
-  { slug: 'PanayNewsOnline',      label: 'Panay News',        sourceKey: 'news',       filter: /iloilo|panay|visayas/i },
-  { slug: 'LTFRBRegion6',         label: 'LTFRB Region 6',    sourceKey: 'traffic',    filter: /iloilo|panay|visayas|region.?6/i },
-  { slug: 'pnaregion6',           label: 'PNA Region VI',     sourceKey: 'news',       filter: /iloilo|panay|visayas/i },
-  { slug: 'GMANewsTV',            label: 'GMA News',          sourceKey: 'news',       filter: /iloilo|panay|visayas|western visayas/i },
-  { slug: 'sunstariloilo',        label: 'SunStar Iloilo',    sourceKey: 'news',       filter: null },
+  { slug: 'MOREpowerIloilo',   label: 'MORE Power',      sourceKey: 'more-power', filter: /power|interrupt|outage|advisory|restoration|wesm|pemco/i },
+  { slug: 'IloiloCDRRMO',      label: 'CDRRMO Iloilo',   sourceKey: 'cdrrmo',     filter: null },
+  { slug: 'CITOMIloilo',       label: 'CITOM Iloilo',    sourceKey: 'traffic',    filter: null },
+  { slug: 'MCWDIloiloWater',   label: 'MCWD Water',      sourceKey: 'mcwd',       filter: null },
+  { slug: 'iloilocitygov',     label: 'Iloilo City Gov', sourceKey: 'news',       filter: null },
+  { slug: 'PanayNewsOnline',   label: 'Panay News',      sourceKey: 'news',       filter: /iloilo|panay|visayas/i },
+  { slug: 'LTFRBRegion6',      label: 'LTFRB Region 6',  sourceKey: 'traffic',    filter: /iloilo|panay|visayas|region.?6/i },
+  { slug: 'pnaregion6',        label: 'PNA Region VI',   sourceKey: 'news',       filter: /iloilo|panay|visayas/i },
+  { slug: 'GMANewsTV',         label: 'GMA News',        sourceKey: 'news',       filter: /iloilo|panay|visayas|western visayas/i },
+  { slug: 'sunstariloilo',     label: 'SunStar Iloilo',  sourceKey: 'news',       filter: null },
 ]
 
 // ── RSSHub helper ─────────────────────────────────────────────────────────────
@@ -72,23 +94,21 @@ async function fetchRSSHubFeed(pageSlug) {
   return null
 }
 
-// ── Parse RSS 2.0 + Atom 1.0 XML into items ───────────────────────────────────
+// ── Parse RSS 2.0 + Atom 1.0 ─────────────────────────────────────────────────
 function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
-  const items = []
-
+  const items  = []
   const itemRe = /<item[^>]*>(.*?)<\/item>/gis
   let m
   while ((m = itemRe.exec(xml)) !== null && items.length < maxItems) {
-    const block    = m[1]
-    const title    = stripCdata(xmlTag(block, 'title')).trim()
-    const link     = (stripCdata(xmlTag(block, 'link')) || xmlAttr(block, 'guid', 'isPermaLink') || xmlAttr(block, 'enclosure', 'url')).trim()
-    const pubDate  = xmlTag(block, 'pubDate').trim() || xmlTag(block, 'dc:date').trim()
-    const desc     = stripHtml(stripCdata(xmlTag(block, 'description') ?? '')).slice(0, 400).trim()
+    const block   = m[1]
+    const title   = stripCdata(xmlTag(block, 'title')).trim()
+    const link    = (stripCdata(xmlTag(block, 'link')) || xmlAttr(block, 'guid', 'isPermaLink') || xmlAttr(block, 'enclosure', 'url')).trim()
+    const pubDate = xmlTag(block, 'pubDate').trim() || xmlTag(block, 'dc:date').trim()
+    const desc    = stripHtml(stripCdata(xmlTag(block, 'description') ?? '')).slice(0, 400).trim()
     if (!title) continue
     if (filterRe && !filterRe.test(title + ' ' + desc)) continue
-    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
+    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetimePHT(), category: sourceKey, raw_data: null })
   }
-
   if (items.length === 0) {
     const entryRe = /<entry[^>]*>(.*?)<\/entry>/gis
     while ((m = entryRe.exec(xml)) !== null && items.length < maxItems) {
@@ -99,10 +119,9 @@ function parseRssXml(xml, sourceKey, maxItems = 8, filterRe = null) {
       const desc    = stripHtml(stripCdata(xmlTag(block, 'summary') || xmlTag(block, 'content') || '')).slice(0, 400).trim()
       if (!title) continue
       if (filterRe && !filterRe.test(title + ' ' + desc)) continue
-      items.push({ title, summary: desc, url: link || null, pub_date: updated ? toIsoDatetime(updated) : isoDatetime(), category: sourceKey, raw_data: null })
+      items.push({ title, summary: desc, url: link || null, pub_date: updated ? toIsoDatetime(updated) : isoDatetimePHT(), category: sourceKey, raw_data: null })
     }
   }
-
   return items
 }
 
@@ -156,15 +175,13 @@ async function getCached(DB, source, limit = null) {
   }
 }
 
-// ── POST: purge gambling rows from DB ────────────────────────────────────────
+// ── POST: purge gambling rows ─────────────────────────────────────────────────
 async function purgeGamblingRows(DB) {
   if (!DB) return json({ error: 'Database not configured' }, 503)
   try {
-    // Pull all rows and delete ones that match gambling blocklist
     const { results: rows = [] } = await DB.prepare('SELECT id, title, summary FROM scraped_news').all()
     const badIds = rows.filter(r => isGamblingNews(r)).map(r => r.id)
     if (badIds.length === 0) return json({ ok: true, purged: 0, message: 'No gambling rows found' })
-    // Delete in chunks of 50 to avoid query size limits
     const chunks = []
     for (let i = 0; i < badIds.length; i += 50) chunks.push(badIds.slice(i, i + 50))
     let purged = 0
@@ -220,9 +237,9 @@ async function runScrape(env, source) {
   return json({ ok: true, source, totalScraped, totalFiltered, totalSaved, results })
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 1: DOE Fuel Prices — Region VI
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeFuelDoe() {
   const items = []
   const resp  = await fetchWithTimeout('https://oilmonitor.doe.gov.ph/prices/weekly',
@@ -237,10 +254,10 @@ async function scrapeFuelDoe() {
     const cells = [...match[1].matchAll(cellRe)].map(m => m[1].trim())
     if (cells.length >= 3 && /region\s*(vi|6|iloilo)/i.test(cells[0])) {
       items.push({
-        title:    `DOE Fuel Prices — Region VI (${todayPH()})`,
+        title:    `DOE Fuel Prices — Region VI (${todayPHT()})`,
         summary:  `Gasoline: ₱${cells[1]}–${cells[2]}/L · Diesel: ₱${cells[3] ?? '?'}–${cells[4] ?? '?'}/L`,
         url:      'https://oilmonitor.doe.gov.ph/prices/weekly',
-        pub_date: isoDatetime(),
+        pub_date: isoDatetimePHT(),
         category: 'fuel',
         raw_data: JSON.stringify(cells),
       })
@@ -249,14 +266,14 @@ async function scrapeFuelDoe() {
   }
   if (items.length === 0) {
     const h = html.match(/<h[12][^>]*>([^<]{10,120})<\/h[12]>/i)
-    if (h) items.push({ title: h[1].trim(), summary: 'DOE weekly fuel price bulletin', url: 'https://oilmonitor.doe.gov.ph/prices/weekly', pub_date: isoDatetime(), category: 'fuel', raw_data: null })
+    if (h) items.push({ title: h[1].trim(), summary: 'DOE weekly fuel price bulletin', url: 'https://oilmonitor.doe.gov.ph/prices/weekly', pub_date: isoDatetimePHT(), category: 'fuel', raw_data: null })
   }
   return items
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 2: MORE Electric & Power Corp
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeMorePower() {
   const items       = []
   const MORE_FILTER = /power.?interrupt|outage|schedul|advisory|restoration|load.?shedding|pemco|wesm/i
@@ -291,9 +308,9 @@ async function scrapeMorePower() {
   return dedupeByTitle(items).slice(0, 15)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 3: Metro Iloilo Water District
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeMcwd() {
   const items = []
 
@@ -318,11 +335,13 @@ async function scrapeMcwd() {
   return dedupeByTitle(items).slice(0, 12)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 4: PAGASA — Heat Index + Weather
-// ───────────────────────────────────────────────────────────────────────────────
+// Title always includes PHT date so each day's entry is treated as NEW (not deduped).
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapePagasaHeatIndex() {
   const items = []
+  const today = isoDatePHT()    // e.g. "2026-05-05" — appended to titles so each day is unique
 
   try {
     const resp = await fetchWithTimeout(
@@ -346,10 +365,11 @@ async function scrapePagasaHeatIndex() {
       if (heatRows.length > 0) {
         const best = heatRows[0]
         items.push({
-          title:    `PAGASA Heat Index — Iloilo: ${best.value}°C (${best.level})`,
+          // Date in title = unique key per day, so the row is treated as a new entry each day
+          title:    `PAGASA Heat Index — Iloilo: ${best.value}°C (${best.level}) [${today}]`,
           summary:  heatRows.map(r => `${r.station}: ${r.value}°C — ${r.level}`).join(' | '),
           url:      'https://www.pagasa.dost.gov.ph/climate/heat-index',
-          pub_date: isoDatetime(),
+          pub_date: isoDatetimePHT(),
           category: 'pagasa-heat-index',
           raw_data: JSON.stringify(heatRows),
         })
@@ -357,10 +377,10 @@ async function scrapePagasaHeatIndex() {
         const matches = [...html.matchAll(/(?:iloilo|western visayas)[^.]{0,120}?\d{2}(?:\.\d)?°?\s*(?:degrees|c\b)/gi)]
         if (matches.length > 0) {
           items.push({
-            title:    `PAGASA Heat Index Advisory — ${todayPH()}`,
+            title:    `PAGASA Heat Index Advisory — ${todayPHT()} [${today}]`,
             summary:  matches.slice(0, 3).map(m => m[0].trim()).join(' | '),
             url:      'https://www.pagasa.dost.gov.ph/climate/heat-index',
-            pub_date: isoDatetime(),
+            pub_date: isoDatetimePHT(),
             category: 'pagasa-heat-index',
             raw_data: null,
           })
@@ -379,10 +399,11 @@ async function scrapePagasaHeatIndex() {
       const html    = await resp.text()
       const wvMatch = html.match(/western visayas[^.]{0,300}/i)
       if (wvMatch) items.push({
-        title:    `PAGASA Daily Forecast — Western Visayas (${todayPH()})`,
+        // Date in title = unique key per day
+        title:    `PAGASA Daily Forecast — Western Visayas [${today}]`,
         summary:  stripHtml(wvMatch[0]).slice(0, 250).trim(),
         url:      'https://www.pagasa.dost.gov.ph/weather#daily-weather-forecast',
-        pub_date: isoDatetime(),
+        pub_date: isoDatetimePHT(),
         category: 'pagasa-weather',
         raw_data: null,
       })
@@ -401,9 +422,9 @@ async function scrapePagasaHeatIndex() {
   return dedupeByTitle(items).slice(0, 10)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 5: CDRRMO Iloilo City
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeCdrrmo() {
   const items = []
 
@@ -434,19 +455,19 @@ async function scrapeCdrrmo() {
   return dedupeByTitle(items).slice(0, 18)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 6: Energy News
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeEnergyNews() {
   const items = []
   const ENERGY_FEEDS = [
-    { url: 'https://www.doe.gov.ph/index.php?format=feed&type=rss',        source: 'DOE',                 filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|pemco|wesm|panay|visayas/i },
-    { url: 'https://www.doe.gov.ph/index.php?format=feed&type=atom',       source: 'DOE Atom',            filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|pemco|wesm|panay|visayas/i },
-    { url: 'https://businessmirror.com.ph/category/energy/feed/',           source: 'BusinessMirror',      filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|panay|visayas/i },
-    { url: 'https://business.inquirer.net/tag/power/feed/',                 source: 'Inquirer Business',   filter: /iloilo|western visayas|panay|more.?power|visayas/i },
-    { url: 'https://www.panaynews.net/category/business/feed/',             source: 'Panay News Business',  filter: /power|energy|fuel|electricity|pemco|more.?power|wesm|load.?shed/i },
-    { url: 'https://www.panaynews.net/feed/',                               source: 'Panay News',           filter: /power.?interrupt|outage|restoration|load.?shed|energy|fuel|pemco|wesm/i },
-    { url: 'https://www.bworldonline.com/feed/',                            source: 'BusinessWorld',        filter: /iloilo|region.?6|western visayas|more.?power|pemco|wesm|panay/i },
+    { url: 'https://www.doe.gov.ph/index.php?format=feed&type=rss',         source: 'DOE',                  filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|pemco|wesm|panay|visayas/i },
+    { url: 'https://www.doe.gov.ph/index.php?format=feed&type=atom',        source: 'DOE Atom',             filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|pemco|wesm|panay|visayas/i },
+    { url: 'https://businessmirror.com.ph/category/energy/feed/',            source: 'BusinessMirror',       filter: /iloilo|region.?6|region.?vi|western visayas|more.?power|panay|visayas/i },
+    { url: 'https://business.inquirer.net/tag/power/feed/',                  source: 'Inquirer Business',    filter: /iloilo|western visayas|panay|more.?power|visayas/i },
+    { url: 'https://www.panaynews.net/category/business/feed/',              source: 'Panay News Business',  filter: /power|energy|fuel|electricity|pemco|more.?power|wesm|load.?shed/i },
+    { url: 'https://www.panaynews.net/feed/',                                source: 'Panay News',           filter: /power.?interrupt|outage|restoration|load.?shed|energy|fuel|pemco|wesm/i },
+    { url: 'https://www.bworldonline.com/feed/',                             source: 'BusinessWorld',        filter: /iloilo|region.?6|western visayas|more.?power|pemco|wesm|panay/i },
   ]
   const feedResults = await Promise.allSettled(
     ENERGY_FEEDS.map(async (feed) => {
@@ -459,9 +480,9 @@ async function scrapeEnergyNews() {
   return dedupeByTitle(items).slice(0, 15)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 7: Traffic & Accident Alerts
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 const TRAFFIC_KW = /traffic|accident|crash|collision|reroute|re-route|road.?clos|closed|checkpoint|congestion|vehicular|pileup|pile.?up|ltfrb|lto.?region|citom|enforce/i
 const ILOILO_KW  = /iloilo|panay|western visayas|region.?6|diversion|molo|jaro|mandurriao|lapuz|la paz|pavia/i
 
@@ -497,10 +518,10 @@ async function scrapeTrafficAlerts() {
   } catch (_) {}
 
   const newsFeeds = [
-    { url: 'https://www.panaynews.net/feed/',     source: 'Panay News'    },
-    { url: 'https://thedailyguardian.net/feed/',  source: 'Daily Guardian' },
-    { url: 'https://www.philstar.com/rss/nation', source: 'PhilStar'      },
-    { url: 'https://www.mb.com.ph/feed/',         source: 'Manila Bulletin' },
+    { url: 'https://www.panaynews.net/feed/',     source: 'Panay News'     },
+    { url: 'https://thedailyguardian.net/feed/',  source: 'Daily Guardian'  },
+    { url: 'https://www.philstar.com/rss/nation', source: 'PhilStar'        },
+    { url: 'https://www.mb.com.ph/feed/',         source: 'Manila Bulletin'  },
   ]
   const feedResults = await Promise.allSettled(
     newsFeeds.map(async (feed) => {
@@ -524,28 +545,28 @@ async function scrapeTrafficAlerts() {
   return dedupeByTitle(items).slice(0, 20)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 8: General Iloilo News
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeIloiloNews() {
   const items = []
   const IL    = /iloilo|panay|visayas|western visayas|cdrrmo|pagasa|iloilo city/i
 
   const FEEDS = [
-    { url: 'https://www.panaynews.net/feed/',                         source: 'Panay News',       filter: IL },
-    { url: 'https://www.panaynews.net/category/local/feed/',          source: 'Panay News Local', filter: IL },
-    { url: 'https://thedailyguardian.net/feed/',                      source: 'Daily Guardian',   filter: IL },
-    { url: 'https://www.sunstar.com.ph/iloilo/rss.xml',               source: 'SunStar Iloilo',  filter: null },
-    { url: 'https://newsinfo.inquirer.net/tag/iloilo/feed/',           source: 'Inquirer',         filter: null },
-    { url: 'https://www.pna.gov.ph/rss/articles?region=Region%20VI',  source: 'PNA Region VI',    filter: null },
-    { url: 'https://www.gmanetwork.com/news/rss/region_iloilo.xml',    source: 'GMA Iloilo',       filter: null },
+    { url: 'https://www.panaynews.net/feed/',                          source: 'Panay News',        filter: IL },
+    { url: 'https://www.panaynews.net/category/local/feed/',           source: 'Panay News Local',  filter: IL },
+    { url: 'https://thedailyguardian.net/feed/',                       source: 'Daily Guardian',    filter: IL },
+    { url: 'https://www.sunstar.com.ph/iloilo/rss.xml',                source: 'SunStar Iloilo',   filter: null },
+    { url: 'https://newsinfo.inquirer.net/tag/iloilo/feed/',            source: 'Inquirer',          filter: null },
+    { url: 'https://www.pna.gov.ph/rss/articles?region=Region%20VI',   source: 'PNA Region VI',     filter: null },
+    { url: 'https://www.gmanetwork.com/news/rss/region_iloilo.xml',    source: 'GMA Iloilo',        filter: null },
     { url: 'https://www.rappler.com/places/regions/western-visayas/feed/', source: 'Rappler W.Vis', filter: IL },
-    { url: 'https://www.mb.com.ph/feed/',                              source: 'Manila Bulletin',  filter: IL },
-    { url: 'https://www.philstar.com/rss/headlines',                   source: 'PhilStar',         filter: IL },
-    { url: 'https://www.philstar.com/rss/nation',                      source: 'PhilStar Nation',  filter: IL },
-    { url: 'https://www.bworldonline.com/feed/',                       source: 'BusinessWorld',    filter: IL },
+    { url: 'https://www.mb.com.ph/feed/',                              source: 'Manila Bulletin',   filter: IL },
+    { url: 'https://www.philstar.com/rss/headlines',                   source: 'PhilStar',          filter: IL },
+    { url: 'https://www.philstar.com/rss/nation',                      source: 'PhilStar Nation',   filter: IL },
+    { url: 'https://www.bworldonline.com/feed/',                       source: 'BusinessWorld',     filter: IL },
     { url: 'https://www.pna.gov.ph/rss/articles?region=Region%20VI&format=atom', source: 'PNA Region VI (Atom)', filter: null },
-    { url: 'https://iloilocity.gov.ph/feed/',                          source: 'Iloilo City Gov',  filter: null },
+    { url: 'https://iloilocity.gov.ph/feed/',                          source: 'Iloilo City Gov',   filter: null },
   ]
 
   const feedResults = await Promise.allSettled(
@@ -565,11 +586,11 @@ async function scrapeIloiloNews() {
   } catch (_) {}
 
   const FB_NEWS = [
-    { slug: 'iloilocitygov',   source: 'Iloilo City Gov FB' },
-    { slug: 'PanayNewsOnline', source: 'Panay News FB'       },
-    { slug: 'pnaregion6',      source: 'PNA Region VI FB'    },
-    { slug: 'GMANewsTV',       source: 'GMA News FB'         },
-    { slug: 'sunstariloilo',   source: 'SunStar Iloilo FB'   },
+    { slug: 'iloilocitygov',   source: 'Iloilo City Gov FB'  },
+    { slug: 'PanayNewsOnline', source: 'Panay News FB'        },
+    { slug: 'pnaregion6',      source: 'PNA Region VI FB'     },
+    { slug: 'GMANewsTV',       source: 'GMA News FB'          },
+    { slug: 'sunstariloilo',   source: 'SunStar Iloilo FB'    },
   ]
   const fbResults = await Promise.allSettled(
     FB_NEWS.map(async (page) => {
@@ -587,9 +608,9 @@ async function scrapeIloiloNews() {
   return dedupeByTitle(items).slice(0, 40)
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // SCRAPER 9: Facebook Pages — dedicated source
-// ───────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 async function scrapeFacebookPages() {
   const items   = []
   const results = []
@@ -643,12 +664,12 @@ async function parseRssFeedDouble(feedUrl, sourceKey, maxItems = 8, filterA, fil
     if (!title) continue
     if (filterA && !filterA.test(text)) continue
     if (filterB && !filterB.test(text)) continue
-    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
+    items.push({ title, summary: desc, url: link || null, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetimePHT(), category: sourceKey, raw_data: null })
   }
   return items
 }
 
-// ── WordPress archive helper ──────────────────────────────────────────────────
+// ── WordPress archive helper ───────────────────────────────────────────────────
 function scrapeWordPressArchive(html, sourceKey) {
   const items = []
   const seen  = new Set()
@@ -657,7 +678,7 @@ function scrapeWordPressArchive(html, sourceKey) {
     const key = normalizeTitle(title)
     if (!title || !key || seen.has(key)) return
     seen.add(key)
-    items.push({ title: title.trim(), summary: excerpt?.trim() ?? '', url, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetime(), category: sourceKey, raw_data: null })
+    items.push({ title: title.trim(), summary: excerpt?.trim() ?? '', url, pub_date: pubDate ? toIsoDatetime(pubDate) : isoDatetimePHT(), category: sourceKey, raw_data: null })
   }
 
   const titleReA   = /<h[2-4][^>]*class="[^"]*entry-title[^"]*"[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi
@@ -687,7 +708,7 @@ function scrapeWordPressArchive(html, sourceKey) {
   return items.slice(0, 10)
 }
 
-// ── D1 upsert ─────────────────────────────────────────────────────────────────
+// ── D1 upsert — always updates scraped_at so "just now" is accurate ───────────
 async function upsertItems(DB, sourceKey, items) {
   await DB.prepare(`
     CREATE TABLE IF NOT EXISTS scraped_news (
@@ -704,17 +725,18 @@ async function upsertItems(DB, sourceKey, items) {
     )
   `).run().catch(() => {})
 
+  const nowPHT = isoDatetimePHT()
   let saved = 0
   for (const item of items) {
     try {
       const r = await DB.prepare(`
         INSERT INTO scraped_news (source_key, title, summary, url, pub_date, category, raw_data, scraped_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_key, title) DO UPDATE SET
           summary    = excluded.summary,
           pub_date   = excluded.pub_date,
           raw_data   = excluded.raw_data,
-          scraped_at = datetime('now')
+          scraped_at = ?              -- always refresh so relativeTime() is accurate
       `).bind(
         sourceKey,
         item.title    ?? '',
@@ -723,6 +745,8 @@ async function upsertItems(DB, sourceKey, items) {
         item.pub_date ?? null,
         item.category ?? sourceKey,
         item.raw_data ?? null,
+        nowPHT,   // INSERT value
+        nowPHT,   // UPDATE value
       ).run()
       if (r.changes > 0) saved++
     } catch (_) {}
@@ -761,12 +785,6 @@ function classifyHeat(val) {
   if (val >= 27) return 'Caution'
   return 'Normal'
 }
-
-function isoDatetime()      { return new Date().toISOString().replace('T', ' ').slice(0, 19) }
-function isoDate()          { return new Date().toISOString().slice(0, 10) }
-function todayPH()          { return new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) }
-function toIsoDatetime(str) { try { return new Date(str).toISOString().replace('T', ' ').slice(0, 19) } catch { return isoDatetime() } }
-function toIsoDate(str)     { try { return new Date(str).toISOString().slice(0, 10) } catch { return isoDate() } }
 
 function xmlTag(xml, tag)         { return xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))?.[1] ?? '' }
 function xmlAttr(xml, tag, attr)  { return xml.match(new RegExp(`<${tag}[^>\\s][^>]*\\b${attr}="([^"]+)"`, 'i'))?.[1] ?? '' }
