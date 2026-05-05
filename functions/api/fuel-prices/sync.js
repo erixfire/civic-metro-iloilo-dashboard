@@ -3,9 +3,6 @@
  * GET  /api/fuel-prices/sync  — check last sync status
  *
  * Also called automatically by the Cloudflare Cron Trigger every Tuesday at 8AM PHT.
- * Cron config in wrangler.toml:
- *   [[triggers.crons]]
- *   crons = ["0 0 * * 2"]   # every Tuesday 00:00 UTC = 08:00 PHT
  *
  * DOE Strategy:
  *   1. Try DOE Oil Price Monitoring CSV (Western Visayas row)
@@ -55,7 +52,7 @@ export async function onRequest({ request, env }) {
 async function runSync(env, triggeredBy) {
   const today = new Date().toISOString().split('T')[0]
 
-  // Try source 1: DOE Oil Price Monitoring weekly report (CSV via data.gov.ph mirror)
+  // Try source 1: DOE Oil Price Monitoring CSV via data.gov.ph mirror
   let result = await tryDoeDataGovPh(today)
 
   // Try source 2: DOE Oil Monitor site HTML table
@@ -65,25 +62,30 @@ async function runSync(env, triggeredBy) {
   if (!result) result = await tryOpenDataPh(today)
 
   if (!result) {
-    const status = { ok: false, reason: 'All DOE sources unavailable. Please enter prices manually.', checked_at: new Date().toISOString(), triggered_by: triggeredBy }
+    const status = {
+      ok:           false,
+      reason:       'All DOE sources unavailable. Please enter prices manually.',
+      checked_at:   new Date().toISOString(),
+      triggered_by: triggeredBy,
+    }
     await saveStatus(env, status)
     return status
   }
 
   // Upsert into D1 fuel_prices
-  await env.DB.prepare(
-    `INSERT INTO fuel_prices (
-       as_of, iloilo_gasoline_avg, iloilo_diesel_avg, iloilo_kerosene_avg,
-       ph_gasoline_avg, ph_diesel_avg, source, logged_by
-     ) VALUES (?,?,?,?,?,?,?,?)
-     ON CONFLICT(as_of) DO UPDATE SET
-       iloilo_gasoline_avg = excluded.iloilo_gasoline_avg,
-       iloilo_diesel_avg   = excluded.iloilo_diesel_avg,
-       iloilo_kerosene_avg = excluded.iloilo_kerosene_avg,
-       ph_gasoline_avg     = excluded.ph_gasoline_avg,
-       ph_diesel_avg       = excluded.ph_diesel_avg,
-       source              = excluded.source`
-  ).bind(
+  await env.DB.prepare(`
+    INSERT INTO fuel_prices (
+      as_of, iloilo_gasoline_avg, iloilo_diesel_avg, iloilo_kerosene_avg,
+      ph_gasoline_avg, ph_diesel_avg, source, logged_by
+    ) VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(as_of) DO UPDATE SET
+      iloilo_gasoline_avg = excluded.iloilo_gasoline_avg,
+      iloilo_diesel_avg   = excluded.iloilo_diesel_avg,
+      iloilo_kerosene_avg = excluded.iloilo_kerosene_avg,
+      ph_gasoline_avg     = excluded.ph_gasoline_avg,
+      ph_diesel_avg       = excluded.ph_diesel_avg,
+      source              = excluded.source
+  `).bind(
     result.as_of,
     result.gasoline_avg  ?? null,
     result.diesel_avg    ?? null,
@@ -94,13 +96,23 @@ async function runSync(env, triggeredBy) {
     `auto:${triggeredBy}`,
   ).run()
 
-  // Log to audit
   await env.DB.prepare(
     `INSERT INTO audit_log (action, table_name, record_id, performed_by, details, created_at)
      VALUES ('fuel_sync', 'fuel_prices', ?, 'cron', ?, datetime('now'))`
   ).bind(result.as_of, JSON.stringify({ source: result.source, triggered_by: triggeredBy })).run().catch(() => {})
 
-  const status = { ok: true, as_of: result.as_of, source: result.source, synced_at: new Date().toISOString(), triggered_by: triggeredBy, prices: { gasoline: result.gasoline_avg, diesel: result.diesel_avg, kerosene: result.kerosene_avg } }
+  const status = {
+    ok:           true,
+    as_of:        result.as_of,
+    source:       result.source,
+    synced_at:    new Date().toISOString(),
+    triggered_by: triggeredBy,
+    prices: {
+      gasoline:  result.gasoline_avg,
+      diesel:    result.diesel_avg,
+      kerosene:  result.kerosene_avg,
+    },
+  }
   await saveStatus(env, status)
   return status
 }
@@ -108,20 +120,16 @@ async function runSync(env, triggeredBy) {
 // ---- DOE Source 1: data.gov.ph mirror / DOE CSV ---------------------------
 async function tryDoeDataGovPh(today) {
   try {
-    // DOE publishes weekly pump price monitoring to data.gov.ph
-    // URL pattern observed: https://data.gov.ph/datasets/fuel-price-monitoring
     const res = await fetch(
       'https://data.gov.ph/api/3/action/datastore_search?resource_id=fuel-price-monitoring&limit=10',
       { headers: { 'User-Agent': 'CivicMetroIloilo/1.0' }, signal: AbortSignal.timeout(8000) }
     )
     if (!res.ok) return null
-    const data = await res.json()
+    const data    = await res.json()
     const records = data?.result?.records ?? []
-    // Find Western Visayas row
-    const wv = records.find((r) =>
+    const wv = records.find(r =>
       (r.Region ?? r.region ?? '').toLowerCase().includes('western visayas') ||
-      (r.Region ?? r.region ?? '').toLowerCase().includes('region vi') ||
-      (r.Region ?? r.region ?? '').toLowerCase().includes('vi')
+      (r.Region ?? r.region ?? '').toLowerCase().includes('region vi')
     )
     if (!wv) return null
     return {
@@ -144,10 +152,7 @@ async function tryDoeOilMonitor(today) {
       { headers: { 'User-Agent': 'CivicMetroIloilo/1.0', Accept: 'text/html' }, signal: AbortSignal.timeout(10000) }
     )
     if (!res.ok) return null
-    const html = await res.text()
-
-    // Basic regex extraction for Western Visayas row
-    // Table format: Region | Gasoline | Diesel | Kerosene
+    const html    = await res.text()
     const wvMatch = html.match(
       /western visayas[^<]*<\/td>[\s\S]{0,200}?<td[^>]*>([\d.]+)<\/td>[\s\S]{0,100}?<td[^>]*>([\d.]+)<\/td>[\s\S]{0,100}?<td[^>]*>([\d.]+)<\/td>/i
     )
@@ -167,15 +172,14 @@ async function tryDoeOilMonitor(today) {
 // ---- DOE Source 3: Open Data PH API ----------------------------------------
 async function tryOpenDataPh(today) {
   try {
-    // Try CKAN-style API that Open Data PH uses
     const res = await fetch(
       'https://opendata.gov.ph/api/3/action/datastore_search?resource_id=fuel_price_monitoring&limit=20',
       { headers: { 'User-Agent': 'CivicMetroIloilo/1.0' }, signal: AbortSignal.timeout(8000) }
     )
     if (!res.ok) return null
-    const data = await res.json()
+    const data    = await res.json()
     const records = data?.result?.records ?? []
-    const wv = records.find((r) =>
+    const wv = records.find(r =>
       JSON.stringify(r).toLowerCase().includes('western visayas') ||
       JSON.stringify(r).toLowerCase().includes('region vi')
     )
@@ -205,22 +209,40 @@ function getBearerToken(req) {
   const auth = req.headers.get('Authorization') ?? ''
   return auth.startsWith('Bearer ') ? auth.slice(7) : null
 }
+
+/**
+ * Verify a HS256 JWT.
+ * The signature segment is base64url-encoded — NOT hex.
+ * We decode it with a proper base64url → Uint8Array conversion.
+ */
 async function verifyToken(token, secret) {
   try {
     if (!token) return null
     const parts = token.split('.')
     if (parts.length !== 3) return null
     const [header, body, sig] = parts
-    const enc    = new TextEncoder()
-    const key    = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
-    const sigBuf = new Uint8Array(sig.match(/.{2}/g).map(b => parseInt(b, 16)))
-    const valid  = await crypto.subtle.verify('HMAC', key, sigBuf, enc.encode(`${header}.${body}`))
+
+    // base64url → base64 → binary
+    const b64    = sig.replace(/-/g, '+').replace(/_/g, '/').padEnd(sig.length + (4 - sig.length % 4) % 4, '=')
+    const binary = atob(b64)
+    const sigBuf = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) sigBuf[i] = binary.charCodeAt(i)
+
+    const enc   = new TextEncoder()
+    const key   = await crypto.subtle.importKey(
+      'raw', enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false, ['verify']
+    )
+    const valid = await crypto.subtle.verify('HMAC', key, sigBuf, enc.encode(`${header}.${body}`))
     if (!valid) return null
-    const pl = JSON.parse(atob(body))
+
+    const pl = JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/')))
     if (pl.exp && Math.floor(Date.now() / 1000) > pl.exp) return null
     return pl
   } catch { return null }
 }
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: CORS })
 }
