@@ -2,6 +2,7 @@
  * AdminIncidents — Full incident management table for Admin Panel
  * Features: filter by type/district/status (including pending), select all,
  *   bulk approve/reject/resolve/delete, CSV export, stats bar, moderation queue badge.
+ * Fix: Authorization header now sent on all PATCH requests via getToken prop.
  */
 import { useState, useEffect, useCallback } from 'react'
 
@@ -22,7 +23,7 @@ const STATUS_BADGE = {
   rejected: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
 }
 
-export default function AdminIncidents() {
+export default function AdminIncidents({ getToken }) {
   const [incidents, setIncidents] = useState([])
   const [summary,   setSummary]   = useState({})
   const [loading,   setLoading]   = useState(false)
@@ -31,6 +32,11 @@ export default function AdminIncidents() {
   const [toast,     setToast]     = useState('')
 
   const [filters, setFilters] = useState({ status: 'all', type: 'all', district: 'all', days: '30' })
+
+  function authHeader() {
+    const t = getToken?.()
+    return t ? { Authorization: `Bearer ${t}` } : {}
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -42,12 +48,12 @@ export default function AdminIncidents() {
       if (filters.district !== 'all') p.set('district', filters.district)
       p.set('days', filters.days)
 
-      const r = await fetch(`/api/incidents?${p}`)
+      const r = await fetch(`/api/incidents?${p}`, { headers: authHeader() })
       const d = await r.json()
       setIncidents(d.incidents ?? [])
       setSummary(d.summary ?? {})
     } finally { setLoading(false) }
-  }, [filters])
+  }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
 
@@ -79,10 +85,11 @@ export default function AdminIncidents() {
     try {
       const r = await fetch('/api/incidents', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ ids: [...selected], action }),
       })
       const d = await r.json()
+      if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`)
       const verb = { approve: 'Approved', reject: 'Rejected', resolve: 'Resolved', delete: 'Deleted' }[action] ?? action
       showToast(`✅ ${verb} ${d.affected} incident(s)`)
       load()
@@ -93,11 +100,13 @@ export default function AdminIncidents() {
 
   async function singleAction(id, action) {
     try {
-      await fetch('/api/incidents', {
+      const r = await fetch('/api/incidents', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ id, action }),
       })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`)
       load()
     } catch (e) {
       showToast(`❌ Failed: ${e.message}`, true)

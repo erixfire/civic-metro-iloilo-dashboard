@@ -4,6 +4,9 @@
  *
  * Public submissions are sent as status=pending and await admin moderation.
  * Authenticated operators/admins may submit directly as active.
+ *
+ * Fix: moderation actions (approve/reject/resolve/delete) now accept an
+ * optional authHeader object so the admin panel can pass the Bearer token.
  */
 import { create } from 'zustand'
 
@@ -135,7 +138,7 @@ const SAMPLE_INCIDENTS = [
 
 // ── Store ──────────────────────────────────────────────────────
 const useIncidentStore = create((set, get) => ({
-  incidents:   SAMPLE_INCIDENTS, // pre-seeded for demo
+  incidents:   SAMPLE_INCIDENTS,
   loading:     false,
   error:       null,
   lastFetched: null,
@@ -162,7 +165,7 @@ const useIncidentStore = create((set, get) => ({
     }
   },
 
-  // Public submission — optimistically adds as 'pending'; API will confirm
+  // Public submission — no auth required
   addIncident: async (incident) => {
     set({ loading: true, error: null })
     try {
@@ -173,7 +176,7 @@ const useIncidentStore = create((set, get) => ({
         body: JSON.stringify({ id, ...incident }),
       })
       const data = await res.json().catch(() => ({}))
-      const status = data.status ?? 'pending' // API returns actual status
+      const status = data.status ?? 'pending'
       set((s) => ({
         loading: false,
         incidents: [
@@ -182,12 +185,11 @@ const useIncidentStore = create((set, get) => ({
         ],
       }))
       return { id, status }
-    } catch (e) {
-      // Offline fallback: add locally as pending
+    } catch {
       const id = `inc-${Date.now()}`
       set((s) => ({
         loading: false,
-        error: null, // don't surface error to user — offline reports are queued
+        error: null,
         incidents: [
           { id, reportedAt: new Date().toISOString(), status: 'pending', ...incident },
           ...s.incidents,
@@ -197,11 +199,12 @@ const useIncidentStore = create((set, get) => ({
     }
   },
 
-  approveIncident: async (id) => {
+  // Moderation helpers — accept optional extraHeaders for Bearer token
+  approveIncident: async (id, extraHeaders = {}) => {
     try {
       await fetch('/api/incidents', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify({ id, action: 'approve' }),
       })
       set((s) => ({
@@ -212,11 +215,11 @@ const useIncidentStore = create((set, get) => ({
     } catch (e) { set({ error: e.message }) }
   },
 
-  rejectIncident: async (id) => {
+  rejectIncident: async (id, extraHeaders = {}) => {
     try {
       await fetch('/api/incidents', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify({ id, action: 'reject' }),
       })
       set((s) => ({
@@ -225,11 +228,11 @@ const useIncidentStore = create((set, get) => ({
     } catch (e) { set({ error: e.message }) }
   },
 
-  resolveIncident: async (id) => {
+  resolveIncident: async (id, extraHeaders = {}) => {
     try {
       await fetch('/api/incidents', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify({ id, action: 'resolve' }),
       })
       set((s) => ({
@@ -240,11 +243,11 @@ const useIncidentStore = create((set, get) => ({
     } catch (e) { set({ error: e.message }) }
   },
 
-  deleteIncident: async (id) => {
+  deleteIncident: async (id, extraHeaders = {}) => {
     try {
       await fetch('/api/incidents', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify({ id, action: 'delete' }),
       })
       set((s) => ({ incidents: s.incidents.filter((i) => i.id !== id) }))
